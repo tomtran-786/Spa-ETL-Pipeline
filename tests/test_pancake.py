@@ -121,3 +121,21 @@ def test_thong_ke_du_de_quyet_dinh_giu_hay_bo(df_lead_thieu, df_pancake):
                  "bỏ_qua_trùng_tên_pancake", "không_tìm_thấy_tên", "tỷ_lệ_vá_%"):
         assert khoa in tk
     assert "Pancake: vá" in pancake.tom_tat(tk)
+
+
+@pytest.mark.parametrize("gia_tri_rong", [None, float("nan"), pd.NA, ""])
+def test_ten_rong_moi_kieu_deu_vao_dung_nhanh(df_pancake, gia_tri_rong):
+    """Lead không có tên phải đếm vào 'không tìm thấy tên', KHÔNG phải 'trùng tên'.
+
+    Tùy phiên bản, pandas biến None thành NaN khi apply() trên cột object.
+    Code cũ dùng `khoa is None` nên NaN lọt qua và bị đếm nhầm — test ở máy
+    xanh còn CI đỏ, đúng kiểu lỗi khó truy nhất.
+    """
+    df = pd.DataFrame([
+        _lead("Khách Vá Được Một"),
+        _lead(gia_tri_rong),
+    ])
+    _, tk = fill_missing_phones(df, df_pancake)
+    assert tk["không_tìm_thấy_tên"] == 1
+    assert tk["bỏ_qua_trùng_tên_lead"] == 0
+    assert tk["vá_được"] == 1

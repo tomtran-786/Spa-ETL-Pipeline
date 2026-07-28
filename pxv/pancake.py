@@ -89,7 +89,11 @@ def fill_missing_phones(df_lead: pd.DataFrame,
 
     for idx in out.index[thieu]:
         khoa = out.at[idx, "_khóa"]
-        if khoa is None:
+        # Phải dùng isinstance chứ không phải `khoa is None`: tùy phiên bản,
+        # pandas biến None thành NaN khi apply() trên cột object. Lúc đó
+        # `is None` trả False và dòng KHÔNG CÓ TÊN bị đếm nhầm sang nhánh
+        # trùng tên — lỗi chỉ lộ ra trên CI vì máy dev cài pandas bản khác.
+        if not isinstance(khoa, str):
             tk["không_tìm_thấy_tên"] += 1
             continue
         if khoa not in ten_duy_nhat_lead:

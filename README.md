@@ -1,413 +1,187 @@
-# Phun Xăm Vic — Sales Pipeline trên Google Sheets
+# Phun Xăm Vic — Pipeline phân tích Sales & Marketing
 
-Pipeline tổng hợp dữ liệu tư vấn (từ 5 nhân viên sales) và dữ liệu bán hàng (từ KiotViet) thành một dashboard Master duy nhất, phục vụ phân tích funnel conversion.
+Gộp dữ liệu tư vấn của sales, lịch hẹn và hóa đơn KiotViet thành các bảng phục vụ dashboard quản trị: doanh thu, phễu chuyển đổi, hiệu quả kênh quảng cáo, CLV và funnel dịch vụ mồi.
 
----
-
-## Mục lục
-
-- [Phần I — Hướng dẫn sử dụng](#phần-i--hướng-dẫn-sử-dụng)
-  - [1. Cấu trúc file](#1-cấu-trúc-file)
-  - [2. Quy trình hàng ngày](#2-quy-trình-hàng-ngày)
-  - [3. Đọc kết quả ở Master](#3-đọc-kết-quả-ở-master)
-  - [4. Đếm funnel đúng cách](#4-đếm-funnel-đúng-cách)
-  - [5. Troubleshoot](#5-troubleshoot)
-- [Phần II — Tài liệu kỹ thuật](#phần-ii--tài-liệu-kỹ-thuật)
-  - [6. Kiến trúc tổng thể](#6-kiến-trúc-tổng-thể)
-  - [7. Chuẩn hóa SĐT](#7-chuẩn-hóa-sđt-khóa-join)
-  - [8. _KV_Block](#8-_kv_block--dòng-kv-driven)
-  - [9. _Orphan_Block](#9-_orphan_block--dòng-orphan-lead)
-  - [10. Master](#10-master--gộp-2-block)
-  - [11. Phân nhóm MECE](#11-phân-nhóm-mece)
-  - [12. Tradeoff và hạn chế](#12-tradeoff-và-hạn-chế)
-  - [13. Maintenance](#13-maintenance)
-  - [14. Lý do thiết kế (FAQ kỹ thuật)](#14-lý-do-thiết-kế-faq-kỹ-thuật)
+> **Vận hành hằng ngày** (export file, xử lý cảnh báo, đọc số): xem [RUNBOOK.md](RUNBOOK.md).
+> Tài liệu này dành cho người sửa code.
 
 ---
 
-# Phần I — Hướng dẫn sử dụng
-
-## 1. Cấu trúc file
-
-File có 10 sheet, trong đó 2 sheet ẩn (`_KV_Block`, `_Orphan_Block`) làm việc tính toán nền.
-
-| Sheet | Vai trò | Ai dùng |
-|---|---|---|
-| `Hướng Dẫn` | README rút gọn trong file | Tất cả |
-| `Master` | Dashboard đầu ra cuối cùng | Admin / Phân tích |
-| `KiotViet` | Paste export raw từ KiotViet | Admin |
-| `Đặng Đông` | Sheet nhập liệu của NV Đặng Đông | NV |
-| `Huyền Trang` | Sheet nhập liệu của NV Huyền Trang | NV |
-| `Trường Khang` | Sheet nhập liệu của NV Trường Khang | NV |
-| `Hoàng Diễm` | Sheet nhập liệu của NV Hoàng Diễm | NV |
-| `Mai Thy` | Sheet nhập liệu của NV Mai Thy | NV |
-| `Danh Mục` | Tham khảo danh sách dropdown | Admin |
-| `_KV_Block` (ẩn) | Helper — sinh 1 dòng/HĐ | Backend |
-| `_Orphan_Block` (ẩn) | Helper — sinh 1 dòng/lead không match HĐ | Backend |
-
-## 2. Quy trình hàng ngày
-
-### Cho nhân viên sales
-
-1. Mở file Google Sheet, vào sheet **mang tên mình**.
-2. Mỗi inbox = 1 dòng mới. Điền theo thứ tự:
-   - **Ngày Lead** (cột A): nhập ngày khách nhắn
-   - **Mã vùng** (cột B): bấm ▼ chọn `+84` (mặc định)
-   - **Số ĐT** (cột C): nhập số (vd `0390000001` hoặc `390000001` đều được)
-   - **Tên khách hàng** (cột D): nhập tên
-   - **LOẠI TIN NHẮN** (cột F): bấm ▼ chọn
-   - **NHÓM SP** (cột G): bấm ▼ chọn `DỊCH VỤ` hoặc `ĐÀO TẠO`
-   - **NGUỒN** (cột H): bấm ▼ chọn kênh khách đến từ đâu
-   - **QUAN TÂM** (cột I): bấm ▼ chọn dịch vụ khách hỏi
-   - **TÌNH TRẠNG** (cột J): bấm ▼ chọn trạng thái lead
-   - **NGÀY HẸN** (cột K): nhập nếu có hẹn cụ thể
-
-3. **KHÔNG sửa** các cột màu vàng:
-   - Cột E (SĐT Cuối) — tự chuẩn hóa
-   - Cột L (CHATPAGE) — tự điền tên NV
-
-### Cho admin
-
-1. Cuối ngày / cuối tuần, export hóa đơn từ KiotViet ra CSV.
-2. Vào sheet `KiotViet`, click ô A2, Ctrl+V để paste toàn bộ CSV (cả header lẫn data đều được).
-3. Master tự cập nhật. Có thể mất 10-30 giây để recalc xong.
-
-## 3. Đọc kết quả ở Master
-
-Mỗi dòng trong Master = 1 đơn vị phân tích, có thể là:
-
-- **1 hóa đơn** (khách đã mua) — cột J `Mã hóa đơn` có giá trị
-- **1 lead chưa ra đơn** (khách inbox nhưng chưa mua) — cột J trống, cột P `Phễu` = "Không có hóa đơn"
-
-24 cột của Master:
-
-| Cột | Tên | Ý nghĩa |
-|---|---|---|
-| A | SĐT Cuối | SĐT đã chuẩn hóa, dùng làm khóa join |
-| B | Ngày Lead | Ngày NV ghi nhận lead |
-| C | Thời gian (HĐ) | Ngày phát sinh hóa đơn (nếu có) |
-| D | CHATPAGE | NV nào tư vấn |
-| E-I | Thông tin lead | Loại tin nhắn, nhóm SP, nguồn, quan tâm, tình trạng |
-| J-M | Thông tin HĐ | Mã HĐ, Mã KH, Tên hàng, Doanh thu |
-| N | NGÀY HẸN | Ngày hẹn đến cửa hàng |
-| O | Thời gian ra đơn (Ngày) | Số ngày từ lead → mua |
-| P | Phễu | TRUE/FALSE/"Không có hóa đơn" |
-| Q-S | NHÓM SP_Clean, Kênh Tiếp Cận, Phân loại sản phẩm | Phân loại auto |
-| T-W | [F]1 → [F]4 | 4 cờ funnel (0/1) |
-| X | Phân nhóm MECE | Nhãn nhóm 0-5 (xem mục 11) |
-
-## 4. Đếm funnel đúng cách
-
-**Vấn đề:** Một SĐT có thể có nhiều dòng (vì mua nhiều HĐ). Nếu SUM cờ funnel thẳng → đếm trùng.
-
-**Giải pháp:** Thêm 2 cột helper vào Master để chọn đúng "góc nhìn":
-
-### Setup 1 lần
-
-Vào Master, gõ vào ô:
-- **Y1:** `Lead_Unique_Flag`
-- **Z1:** `HĐ_Unique_Flag`
-- **Y2:** `=ARRAYFORMULA(IF(A2:A="",,IF(COUNTIF(A$2:A2,A2:A)=1,1,0)))`
-- **Z2:** `=ARRAYFORMULA(IF(A2:A="",,IF(J2:J<>"",1,0)))`
-
-### Cách hoạt động
-
-```
-Cờ Y = "Đây có phải dòng ĐẦU TIÊN của SĐT này không?"
-       → SUM(Y) = số KHÁCH unique
-
-Cờ Z = "Dòng này có Mã HĐ không?"
-       → SUM(Z) = số HÓA ĐƠN
-```
-
-Ví dụ: khách A inbox 1 lần, mua combo 3 HĐ. Master sẽ có 3 dòng cùng SĐT A.
-- Y = `1, 0, 0` → tổng 1 (đếm 1 khách) ✓
-- Z = `1, 1, 1` → tổng 3 (đếm 3 HĐ) ✓
-
-### Công thức dùng 2 cờ này
-
-| Câu hỏi | Công thức |
-|---|---|
-| Bao nhiêu **khách** unique có inbox? | `=SUMIFS(T:T, Y:Y, 1)` |
-| Bao nhiêu **khách** unique có hẹn? | `=SUMIFS(V:V, Y:Y, 1)` |
-| Bao nhiêu **khách** unique mua hàng? | `=SUMIFS(W:W, Y:Y, 1)` |
-| Bao nhiêu **hóa đơn** đã bán? | `=SUM(Z:Z)` |
-| Tổng doanh thu | `=SUM(M:M)` |
-| Tỷ lệ chốt = khách mua / khách inbox | `=SUMIFS(W:W,Y:Y,1) / SUMIFS(T:T,Y:Y,1)` |
-
-> **Luôn dùng cờ Y khi tính funnel conversion** để khử trùng theo SĐT, không thì tỷ lệ sẽ bị méo.
-
-## 5. Troubleshoot
-
-| Triệu chứng | Nguyên nhân | Fix |
-|---|---|---|
-| Cột N (KiotViet) ra `#NAME?` | File đang ở Office Compatibility mode | File → Save as Google Sheets (icon X chuyển thành G) |
-| Cột Ngày Lead / NGÀY HẸN ở Master hiện số `46023` thay vì `04/01/2026` | QUERY strip date format khi gộp mảng | Click header cột → Format → Number → Date |
-| Lead đã nhập nhưng không lên Master | SĐT NV gõ không match với KiotViet | Kiểm tra SĐT Cuối ở cột E sheet NV vs cột N sheet KiotViet — phải giống hệt |
-| Master load chậm | Đang recalc 100k formula | Đợi 10-30 giây lần đầu, sau đó nhanh dần |
-| Vượt 1500 dòng KiotViet | Hết capacity của _KV_Block | Xem mục 13 "Mở rộng capacity" |
-
----
-
-# Phần II — Tài liệu kỹ thuật
-
-## 6. Kiến trúc tổng thể
-
-```
-┌─────────────────┐         ┌──────────────────────────┐
-│  KiotViet       │         │  5 sheet NV              │
-│  (paste raw)    │         │  (NV gõ + dropdown)      │
-│  Mỗi HĐ 1 dòng  │         │  Mỗi lead 1 dòng         │
-│                 │         │                           │
-│  Cột N tự       │         │  Cột E tự chuẩn hóa SĐT  │
-│  chuẩn hóa SĐT  │         │  Cột L tự điền CHATPAGE  │
-└────────┬────────┘         └──────────┬───────────────┘
-         │                              │
-         ▼                              ▼
-    ┌─────────────────────────────────────────┐
-    │  2 sheet ẨN làm việc nền                │
-    │                                          │
-    │  ┌──────────────┐    ┌────────────────┐ │
-    │  │ _KV_Block    │    │ _Orphan_Block  │ │
-    │  │              │    │                 │ │
-    │  │ 1500 dòng    │    │ 5 × 500 = 2500 │ │
-    │  │ (1 dòng/HĐ)  │    │ (1 dòng/lead   │ │
-    │  │              │    │  không có HĐ)  │ │
-    │  └──────┬───────┘    └────────┬───────┘ │
-    │         │                     │          │
-    └─────────┼─────────────────────┼──────────┘
-              │                     │
-              └──────────┬──────────┘
-                         │
-                         ▼
-                ┌────────────────┐
-                │  Master        │
-                │  QUERY gộp 2   │
-                │  block, lọc rỗng│
-                └────────────────┘
-```
-
-**Vấn đề cốt lõi:** Hai nguồn data lệch nhau và phải JOIN qua SĐT.
-
-- KiotViet = bằng chứng KHÁCH MUA, không có thông tin lead
-- Sheet NV = bằng chứng KHÁCH HỎI, không biết có mua không
-
-Một khách xuất hiện ở:
-- Chỉ KiotViet → **Nhóm 1** (vãng lai)
-- Chỉ NV → **Nhóm 0/2/4** (lead chưa chốt)
-- Cả 2 → **Nhóm 3/5** (lead chốt được)
-
-## 7. Chuẩn hóa SĐT (khóa join)
-
-**Quy tắc:** `"0" + (strip mọi ký tự không phải số → strip mọi số 0 đầu)`
-
-**Formula:**
-```
-=IF(C2="","","0" & REGEXREPLACE(REGEXREPLACE(C2&"","[^0-9]",""),"^0+",""))
-```
-
-**Test:**
-```
-KiotViet: "0390000001"   →  "0390000001"
-NV gõ:    "390000001"    →  "0390000001"
-NV gõ:    "(+84) 389..." →  "084389..."  (case này train NV không gõ +84)
-```
-
-**Vị trí:**
-- KiotViet cột **N** — cố tình đặt ngoài vùng paste của CSV (CSV có 13 cột do trailing comma, paste sẽ chiếm A:M)
-- NV cột **E** — đặt sau cột Tên khách hàng
-
-## 8. _KV_Block — dòng KV-driven
-
-**Mục đích:** Với mỗi HĐ trong KiotViet, sinh 1 dòng output có 24 cột (đầy đủ thông tin HĐ + lookup thông tin lead).
-
-**Pre-allocate:** 1500 dòng × 24 cột = 36.000 ô formula.
-
-**Layout 1 dòng:**
-
-| Cột | Logic |
-|---|---|
-| 1 (SĐT) | `=KiotViet!N{r}` — pull thẳng |
-| 2 (Ngày Lead) | Chain lookup qua 5 NV |
-| 3 (Thời gian HĐ) | `=KiotViet!B{r}` |
-| 4 (CHATPAGE) | Chain lookup qua 5 NV cột L |
-| 5-9 | Chain lookup các cột thông tin lead |
-| 10-12 | `=KiotViet!A{r}/C{r}/I{r}` (Mã HĐ, Mã KH, Tên hàng) |
-| 13 (Doanh thu) | `=IFERROR(VALUE(SUBSTITUTE(KiotViet!G{r}&"",".","")),KiotViet!G{r})` — xử lý format VN `9.420.000` |
-| 14 (NGÀY HẸN) | Chain lookup |
-| 15 (TG ra đơn) | `=IF(...,Thời gian HĐ - Ngày Lead,"")` |
-| 16 (Phễu) | `=REGEXMATCH(Tên hàng, "GÓI TIẾT KIỆM|Xóa lần 01|CO2 Fractional")` |
-| 17 (NHÓM SP_Clean) | Ưu tiên NV input; fallback derive từ Tên hàng |
-| 18 (Kênh Tiếp Cận) | Derive từ NGUỒN (Fanpage→Facebook, Tiktok→Tiktok, v.v.) |
-| 19 (Phân loại SP) | REGEXMATCH chain trên Tên hàng |
-| 20-23 (Funnel flags) | Đơn giản: cờ 1 nếu cột tương ứng không rỗng |
-| 24 (MECE) | IF chain trên CHATPAGE + NGÀY HẸN |
-
-### Chain lookup — pattern lõi
-
-Không thể union 5 sheet NV bằng formula thuần (ARRAYFORMULA bị lỗi khi parse từ xlsx). Thay vào đó, mỗi cột cần lookup thử lần lượt qua 5 sheet:
-
-```
-=IF(SĐT="","",
-  IFNA(INDEX('Đặng Đông'!A:A, MATCH(SĐT, 'Đặng Đông'!E:E, 0)),
-   IFNA(INDEX('Huyền Trang'!A:A, MATCH(SĐT, 'Huyền Trang'!E:E, 0)),
-    IFNA(INDEX('Trường Khang'!A:A, MATCH(SĐT, 'Trường Khang'!E:E, 0)),
-     IFNA(INDEX('Hoàng Diễm'!A:A, MATCH(SĐT, 'Hoàng Diễm'!E:E, 0)),
-      IFNA(INDEX('Mai Thy'!A:A, MATCH(SĐT, 'Mai Thy'!E:E, 0)),
-       ""))))))
-```
-
-NV nào ghi SĐT trước → thông tin lead lấy từ sheet đó.
-
-## 9. _Orphan_Block — dòng orphan lead
-
-**Mục đích:** Tìm các lead NV đã ghi nhưng SĐT không match HĐ nào trong KiotViet.
-
-**Pre-allocate:** 5 NV × 500 slot/NV = 2500 dòng × 24 cột = 60.000 ô formula.
-
-**Layout:**
-
-```
-Dòng 2-501:    check orphan cho 'Đặng Đông' dòng 2-501
-Dòng 502-1001: check orphan cho 'Huyền Trang' dòng 2-501
-Dòng 1002-1501: 'Trường Khang'
-Dòng 1502-2001: 'Hoàng Diễm'
-Dòng 2002-2501: 'Mai Thy'
-```
-
-**Điều kiện orphan trong từng ô:**
-```
-AND('NV'!E{src}<>"", COUNTIF(KiotViet!N$2:N$1501, 'NV'!E{src})=0)
-```
-Dịch: SĐT của NV không rỗng AND SĐT đó không xuất hiện trong cột N của KiotViet.
-
-**Mỗi ô có pattern:** `=IF(orphan_condition, value, "")` — nếu orphan thì pull data, không thì để rỗng (Master sẽ filter).
-
-## 10. Master — gộp 2 block
-
-Chỉ có **1 formula duy nhất** ở ô A2:
-
-```
-=QUERY(
-  {_KV_Block!A2:X1501; _Orphan_Block!A2:X2501},
-  "select * where Col1 is not null and Col1 <> ''",
-  0
-)
-```
-
-- `{ ... ; ... }` = stack vertical 2 bảng
-- `QUERY(..., "where Col1 is not null and Col1 <> ''", 0)` = lọc bỏ dòng có SĐT rỗng
-
-## 11. Phân nhóm MECE
-
-| Nhóm | Có CHATPAGE | Có SĐT | Có Hẹn | Có HĐ | Ý nghĩa |
-|---|---|---|---|---|---|
-| 0 | ❌ | ❌ | ❌ | ❌ | Lead chưa có SĐT (hiếm, vì không SĐT thì không vào pipeline) |
-| 1 | ❌ | ✅ | ❌ | ❌ | Vãng lai, chỉ có HĐ |
-| 2 | ✅ | ✅ | ❌ | ❌ | Có SĐT nhưng chưa hẹn & chưa chốt |
-| 3 | ✅ | ✅ | ❌ | ✅ | Chốt thẳng không cần hẹn |
-| 4 | ✅ | ✅ | ✅ | ❌ | Đặt hẹn nhưng rớt |
-| 5 | ✅ | ✅ | ✅ | ✅ | Lead hoàn hảo (đủ 3 bước) |
-
-Logic implement: IF chain trên 2 biến `has_lead` (CHATPAGE) và `has_hen` (NGÀY HẸN) trong _KV_Block; biến `has_hen` và `has_sdt` trong _Orphan_Block.
-
-## 12. Tradeoff và hạn chế
-
-### Case 1: 1 SĐT có nhiều lead (NV ghi nhiều dòng), 1 HĐ
-- Pipeline ra 1 dòng (theo HĐ), chain lookup chỉ pull lead info đầu tiên
-- ✅ Không double count
-- ❌ Mất các lần inbox khác
-
-### Case 2: 1 SĐT 1 lead, mua nhiều HĐ ← Đếm trùng funnel
-- Pipeline ra N dòng (theo N HĐ), mỗi dòng cùng thông tin lead
-- ❌ SUM cờ funnel [F]1/[F]3 sẽ bị inflate
-- ✅ Doanh thu đúng (sum theo HĐ là đúng)
-
-**Giải pháp:** Dùng cờ Y/Z như mục 4 để chọn đúng góc nhìn count.
-
-### Hạn chế khác
-
-- ARRAYFORMULA bị lỗi `#NAME?` khi parse từ xlsx ghi bởi openpyxl → phải dùng per-cell formulas, file ~1MB và load 10-30s lần đầu.
-- Thêm/bớt NV cần sửa chain lookup (extend số tầng IFNA) — không tự động.
-- Không xử lý case khách quay lại sau lâu (vd 6 tháng) — vẫn coi là cùng 1 SĐT lead.
-
-## 13. Maintenance
-
-### Mở rộng capacity KiotViet (>1500 HĐ)
-
-1. Vào sheet `_KV_Block`, chọn dòng 1501 (dòng cuối có formula)
-2. Copy toàn bộ dòng đó
-3. Paste xuống các dòng 1502, 1503, ...
-4. Vào sheet `KiotViet` cột N, copy ô N1501, paste xuống tiếp
-5. Update formula Master A2: đổi `X1501` thành số mới
-
-### Mở rộng capacity NV (>500 lead/NV)
-
-Phức tạp hơn — cần extend cả `_Orphan_Block` (mỗi NV chiếm 500 slot liên tiếp). Khuyến nghị rebuild file qua script Python.
-
-### Thêm NV mới
-
-1. Tạo sheet mới copy từ 1 sheet NV có sẵn, đổi tên thành tên NV mới
-2. Update cột L (CHATPAGE auto): sửa formula thành `=IF(A{r}="","","Tên NV mới")` cho từng dòng
-3. Vào `_KV_Block`, sửa chain lookup ở mọi cột dùng chain (cột 2, 4, 5, 6, 7, 8, 9, 14): thêm 1 tầng IFNA cho NV mới
-4. Vào `_Orphan_Block`, allocate thêm 500 dòng cho NV mới (ở cuối), copy logic từ block 1 NV cũ
-
-→ Đây là lúc cần rebuild file bằng script Python.
-
-### Đổi keyword Phễu
-
-1. Edit → Find and replace (Ctrl+H)
-2. Tìm: `GÓI TIẾT KIỆM|Xóa lần 01|CO2 Fractional`
-3. Thay: regex mới
-4. "Also search within formulas" = ON, "Search" = "All sheets"
-
-### Thêm cột data NV cần ghi
-
-1. Click chuột phải header cột → Insert column left/right
-2. Gõ header
-3. Lặp lại cho cả 5 sheet NV — **GG Sheets tự shift reference**, Master không cần đụng
-
-## 14. Lý do thiết kế (FAQ kỹ thuật)
-
-**Tại sao per-cell formulas thay vì ARRAYFORMULA?**
-
-ARRAYFORMULA viết từ openpyxl (Python lib tạo xlsx) bị Google Sheets parse ra `#NAME?`. Quirk này không document rõ trong openpyxl. Per-cell formulas là cách workaround bulletproof: mỗi ô độc lập, không phụ thuộc array spreading.
-
-Trade off: 96k cell formulas thay vì ~5 ARRAYFORMULA, file ~1MB, load chậm hơn ban đầu. Đổi lại: chạy ổn định mọi lúc.
-
-**Tại sao chain IFNA(INDEX/MATCH) thay vì VLOOKUP với array literal `{}`?**
-
-Lý do tương tự — array literal `{D:D, A:A}` cũng bị lỗi tương tự khi ghi từ openpyxl. INDEX/MATCH với open range hoạt động ổn định.
-
-**Tại sao cột N (SĐT Cuối) ở KiotViet đặt xa thế?**
-
-CSV của KiotViet có 13 cột (10 cột data + 3 trailing comma). Paste sẽ chiếm A:M. Đặt N để không bị paste đè.
-
-**Tại sao 2 sheet block phải ẩn?**
-
-Tránh user vô tình edit. Cũng để tab bar gọn hơn. Cần xem: View → Show hidden sheets.
-
-**Tại sao QUERY ở Master không dùng ARRAYFORMULA wrapper?**
-
-QUERY tự return 2D array, không cần ARRAYFORMULA. Đây là exception duy nhất hoạt động ổn định khi ghi từ openpyxl.
-
-**Tại sao không dùng Apps Script?**
-
-Yêu cầu của user là "formula thuần, không code". Apps Script linh hoạt hơn nhưng cần permission, harder để debug khi NV không phải dev.
-
----
-
-## Build từ đầu (cho dev)
-
-Pipeline được generate bằng Python script `build_v3.py` dùng openpyxl. Để rebuild khi thay đổi cấu trúc lớn (thêm/bớt NV, đổi capacity):
+## Chạy thử
 
 ```bash
-python3 build_v3.py
-# Output: Phun_Xam_Vic_Pipeline_v3.xlsx
+pip install -r requirements.txt
 ```
 
-Upload lên Google Drive, mở bằng Google Sheets, mọi formula tự chạy.
+```bash
+python -m pxv.run_daily
+```
+
+```bash
+python -m pytest tests/ -v
+```
+
+Mặc định đọc file trên máy, kết quả ghi ra `output/PXV_DASHBOARD_DATA.xlsx`.
+
+> ⚠️ **File dữ liệu không nằm trong git** vì chứa tên và số điện thoại khách hàng. Muốn chạy `run_daily` ở máy thì phải tự đặt các file nguồn vào thư mục gốc — xem [Nguồn dữ liệu](#nguồn-dữ-liệu-để-chạy-local). Test dùng dữ liệu bịa nên chạy được ngay sau khi clone.
 
 ---
 
-*Pipeline thiết kế để chạy formula-only trên Google Sheets, không cần Apps Script hay backend riêng.*
+## Nghiệp vụ
+
+```
+Khách nhắn tin  →  Sales xin SĐT  →  Đặt hẹn  →  Đến làm dịch vụ  →  Hóa đơn
+    [F]1             [F]2            [F]3                             [F]4
+```
+
+Ba nguồn rời nhau, nối qua **số điện thoại đã chuẩn hóa**:
+
+| Nguồn | Cho biết | Ai ghi |
+|---|---|---|
+| Sheet LEAD | Ai hỏi, hỏi gì, đến từ kênh nào | Sales |
+| Cột `NGÀY HẸN` trong LEAD | Ai đã đặt lịch | Sales |
+| KiotViet | Ai đã mua, mua gì, bao nhiêu tiền | Phần mềm bán hàng |
+
+Bài toán lõi: KiotViet biết ai **mua** nhưng không biết họ đến từ đâu; sheet sales biết ai **hỏi** nhưng không biết có mua không. Chỉ số điện thoại nối được hai bên.
+
+---
+
+## Kiến trúc
+
+```
+Google Sheets          Drive/KiotViet_Drop      Drive/Pancake_Drop
+  (sales nhập)          (export CSV tay)         (export Excel tay)
+       │                        │                        │
+       │              Apps Script kiểm file trước khi nạp
+       │                        ↓                        ↓
+       │              PXV_KHO: INVOICES_RAW      PXV_KHO: PANCAKE_RAW
+       │              (chỉ thêm, không ghi đè)
+       └────────────────────────┬────────────────────────┘
+                                ↓
+                  GitHub Actions — cron 06:15 hằng ngày
+                  pytest → pxv.run_daily → kiểm chất lượng
+                                ↓
+                  PXV_DASHBOARD_DATA (6 bảng) → Looker Studio
+                                ↓
+                  Apps Script watchdog 09:00 canh pipeline
+```
+
+Chi phí hạ tầng **0đ/tháng**, không lớp nào cần thẻ tín dụng.
+
+**Vì sao chia đôi Apps Script / GitHub Actions.** Apps Script làm phần buộc phải nằm trong Sheets — báo lỗi ngay lúc sales gõ, quét thư mục Drive, canh chừng — và không có key nào để rò rỉ. GitHub Actions chạy phần tính toán, giữ nguyên code pandas đã có test; viết lại logic sang JavaScript thì dễ lệch số.
+
+---
+
+## Cấu trúc code
+
+```
+pxv/
+  config.py     Đường dẫn, cửa sổ thời gian, ngưỡng cảnh báo
+  schema.py     Header kỳ vọng — lệch là dừng, không tính ra số sai
+  clean.py      Chuẩn hóa SĐT, tiền, ngày
+  mappings.py   Quy tắc nghiệp vụ dạng BẢNG DỮ LIỆU (kênh, sản phẩm, alias)
+  ad_costs.py   Chuẩn hóa bảng chi phí quảng cáo
+  io_local.py   Đọc file trên máy
+  io_sheets.py  Đọc/ghi Google Sheets — cùng interface với io_local
+  transform.py  build_master(): gộp 3 nguồn, phân nhóm MECE, cờ phễu
+  marts.py      DIM_KHACH, FUNNEL_MOI, FACT_DAILY, HIEU_QUA_KENH
+  quality.py    15 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
+  run_daily.py  Điểm chạy duy nhất
+
+apps_script/    7 file .gs dán vào Google Sheets — hướng dẫn cài ở Setup.gs
+tests/          82 test, dùng dữ liệu bịa
+scripts/        purge_pii_history.sh — dọn dữ liệu khỏi lịch sử git
+spa.ipynb       Sổ tay khám phá ad-hoc, import từ pxv
+```
+
+Đổi nguồn dữ liệu bằng biến môi trường:
+
+```bash
+PXV_BACKEND=sheets python -m pxv.run_daily
+```
+
+---
+
+## Bảng đầu ra
+
+| Bảng | Mỗi dòng là | Trả lời |
+|---|---|---|
+| `MASTER` | 1 cặp (SĐT × hóa đơn) | Doanh thu, số lead, tỷ lệ chốt, sản phẩm, MECE |
+| `DIM_KHACH` | 1 khách | CLV theo phân khúc, khách quay lại, cohort |
+| `FUNNEL_MOI` | 1 khách mua dịch vụ mồi | Tỷ lệ upsell 30/60/90 ngày |
+| `FACT_DAILY` | 1 cặp (ngày × kênh) | Biểu đồ theo thời gian |
+| `HIEU_QUA_KENH` | 1 cặp (tháng × kênh) | CPL, CAC, ROAS, CLV:CAC |
+| `DQ_STATUS` | 1 phép kiểm | Băng "cập nhật lúc", đèn đỏ/xanh |
+
+**Vì sao tính sẵn CLV và funnel mồi ở pipeline thay vì để Looker tính.** `MASTER` có mỗi dòng là một cặp (SĐT × hóa đơn), nên khách mua 5 lần chiếm 5 dòng. Trên cấu trúc đó `AVG(CLV)` sẽ chia cho mẫu số bị đếm 5 lần, còn tỷ lệ upsell thì cần so ngày mua đầu với các lần sau — Looker không làm được. Nguyên tắc: mỗi câu hỏi trả lời từ **một** bảng, không dùng Blend.
+
+---
+
+## Phân nhóm MECE
+
+Vét cạn 8 tổ hợp của (Lead, Hẹn, Hóa đơn):
+
+| Nhóm | Lead | Hẹn | HĐ | Ý nghĩa |
+|---|---|---|---|---|
+| 0 | ✅ | ❌ | ❌ | Nhắn tin nhưng không cho SĐT |
+| 1 | ❌ | ❌ | ✅ | Vãng lai — mua mà chưa từng nhắn tin |
+| 2 | ✅ | ❌ | ❌ | Có SĐT, chưa hẹn, chưa mua |
+| 3 | ✅ | ❌ | ✅ | Chốt thẳng không cần hẹn |
+| 4 | ✅ | ✅ | ❌ | Đặt hẹn nhưng rớt |
+| 5 | ✅ | ✅ | ✅ | Đủ 3 bước |
+| 6 | ❌ | ✅ | — | Có hẹn nhưng thiếu hồ sơ lead — **lỗi nhập liệu**, nên gần 0 |
+
+---
+
+## Quyết định thiết kế
+
+**Phễu chỉ tính trên khách từng inbox.** Khách vãng lai chưa nhắn tin nên không thuộc phễu marketing — để chung sẽ làm bước sau lớn hơn bước trước, tức phễu nở ra, vô lý. Doanh thu vãng lai đếm ở cột riêng.
+
+**Mỗi SĐT chỉ đếm một lần ở mỗi bước phễu.** Khách mua nhiều hóa đơn chiếm nhiều dòng; cờ phễu chỉ bật ở dòng đầu tiên.
+
+**Số quốc tế được giữ, không bỏ.** Có khách Việt kiều xuất hiện ở cả lead lẫn hóa đơn. Số VN chuẩn hóa thành `0XXXXXXXXX`, số quốc tế thành `+XXXX`, rác thành `None`.
+
+**Hóa đơn không có SĐT vẫn tính doanh thu.** KiotViet ghi `0` khi không có số — đó là tiền thật, chỉ là không join được với lead. Bỏ đi sẽ mất 81 triệu trong cửa sổ T1–T2/2026. Ngược lại, coi `"0"` là SĐT hợp lệ (như code cũ) thì hàng chục khách khác nhau bị gộp làm một người.
+
+**Không tự đoán năm khi ngày trông sai.** Code cũ ép `2025-Q1` thành `2026` để vá 35 dòng gõ nhầm; sang 2027 quy tắc đó sẽ âm thầm bóp méo dữ liệu thật. Giờ ngày nghi sai được đẩy vào bảng `CẦN_SỬA` cho người xử lý tại nguồn.
+
+**Quy tắc nghiệp vụ nằm trong `mappings.py` dạng bảng dữ liệu**, không phải if-chain. Danh sách dịch vụ mồi và cách gom kênh thay đổi theo chiến dịch nên người nghiệp vụ phải sửa được.
+
+**Pipeline chủ động dừng khi dữ liệu sai.** GitHub chỉ gửi mail khi job crash, nên phải crash. Chính sự im lặng đã làm mất trọn tháng 12/2025 mà 7 tháng sau mới phát hiện.
+
+---
+
+## Giới hạn dữ liệu đã biết
+
+Đọc kỹ trước khi kết luận bất cứ điều gì từ dashboard.
+
+| Vấn đề | Ảnh hưởng |
+|---|---|
+| **T12/2025 mất toàn bộ hóa đơn** | Không khôi phục được. Biểu đồ theo thời gian phải vẽ khoảng trống có nhãn, **không phải doanh thu = 0** |
+| **~46% lead không có SĐT** | Không biết họ có mua không. Phần lớn là khách hỏi giá rồi im, không hẳn lỗi sales |
+| **~75% doanh thu không quy được về kênh** | Khách vãng lai không có hồ sơ lead. **Đừng dùng ROAS ở đây làm mẫu số cho toàn bộ doanh thu** |
+| **35 lead ghi 19/01/2025** | Cùng một ngày, trong file lẽ ra là 2026 — nghi gõ nhầm năm hàng loạt, đang chờ xác nhận |
+| **CLV mới có ~4 tháng dữ liệu** | Là giá trị *trong kỳ*, chưa phải giá trị trọn đời |
+
+---
+
+## Phát triển
+
+**Golden file test.** `tests/test_golden.py` đối chiếu output với `output/Master_Pipeline_2026.xlsx` — bản đã nghiệm thu thủ công. Doanh thu và số hóa đơn phải khớp **tuyệt đối**; lead giảm đúng 35 dòng (do bỏ quy tắc ép năm) chứ không phải con số nào khác. File golden chứa dữ liệu khách nên nằm ngoài git, test tự bỏ qua khi không có.
+
+**Chuẩn hóa SĐT tồn tại hai bản** — Python (`pxv/clean.py`) và JavaScript (`apps_script/IngestPancake.gs`). Lệch nhau là join hỏng âm thầm. Sửa một bên thì phải sửa bên kia và đối chiếu lại trên dữ liệu thật.
+
+**Dữ liệu khách không bao giờ vào git.** `.gitignore` chặn `*.csv`, `*.xlsx`, `output/`. Test dùng dữ liệu bịa. Nếu lỡ commit, dùng `scripts/purge_pii_history.sh` — và nhớ rằng **xóa file thôi chưa đủ**: số điện thoại và tên khách có thể nằm trong comment, docstring và test, nên phải quét cả nội dung.
+
+---
+
+## Nguồn dữ liệu để chạy local
+
+Đặt vào thư mục gốc, không commit:
+
+| File | Nội dung |
+|---|---|
+| `Sales_Marketing dataset - SALE T1-2-3_2026.csv` | Lead từ sheet sales |
+| `ĐĂT HẸN .csv` | Lịch hẹn |
+| `Doanh thu T11.2025 đến 25.02.xlsx` | Hóa đơn KiotViet |
+| `chi_phi_qc.csv` *(tùy chọn)* | Chi phí quảng cáo: `tháng, kênh, mã bài QC, chi phí` |

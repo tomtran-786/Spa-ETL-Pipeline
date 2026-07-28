@@ -31,6 +31,13 @@ jobs:
   chay:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # GITHUB_TOKEN mặc định CHỈ ĐỌC, nên bước "Ghi dấu lần chạy" ở cuối bị
+    # chặn: 'Write access to repository not granted' rồi 403. Khai ở đây để
+    # xin thêm quyền ghi — và chỉ xin đúng contents, không xin bừa cả gói.
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -107,5 +114,24 @@ jobs:
           git config user.name  "pxv-pipeline"
           git config user.email "actions@github.com"
           git add state/last_run.txt
-          git diff --staged --quiet || git commit -m "chore: pipeline chạy $(date -u +%F)"
-          git push
+
+          if git diff --staged --quiet; then
+            echo "Không có gì thay đổi — bỏ qua."
+            exit 0
+          fi
+          git commit -m "chore: pipeline chạy $(date -u +%F)"
+
+          # main có thể đã nhích lên kể từ lúc checkout (có người commit tay
+          # trong lúc job chạy). Rebase rồi thử lại, thay vì để job đỏ vì một
+          # chuyện chẳng liên quan gì tới chất lượng dữ liệu — job đỏ vì lý do
+          # vặt lâu dần sẽ khiến không ai thèm đọc mail báo lỗi nữa.
+          for lan in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "::warning::Push lần $lan hỏng, rebase lên main mới nhất rồi thử lại."
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "::error::Không push được dấu lần chạy sau 3 lần thử."
+          exit 1

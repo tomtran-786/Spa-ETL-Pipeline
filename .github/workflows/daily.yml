@@ -1,0 +1,71 @@
+# Chạy pipeline hằng ngày, ghi kết quả lên Google Sheets cho Looker Studio đọc.
+#
+# BA CÁCH KÍCH HOẠT:
+#   1. schedule       — 06:15 giờ VN mỗi ngày
+#   2. workflow_dispatch — bấm Run workflow trên GitHub
+#   3. repository_dispatch — nút "🔄 PXV > Chạy lại pipeline" trong Google Sheet
+#
+# CẦN CẤU HÌNH TRƯỚC (Settings > Secrets and variables > Actions):
+#   Secret  GCP_SA_KEY            : toàn bộ nội dung file JSON của Service Account
+#   Variable PXV_SHEET_NHAP_LIEU  : ID spreadsheet PXV_NHẬP_LIỆU
+#   Variable PXV_SHEET_KHO        : ID spreadsheet PXV_KHO
+#   Variable PXV_SHEET_DASHBOARD  : ID spreadsheet PXV_DASHBOARD_DATA
+name: pipeline hằng ngày
+
+on:
+  schedule:
+    # GitHub chạy theo UTC. 23:15 UTC = 06:15 giờ VN hôm sau.
+    # Cron của GitHub thường trễ 5-30 phút và có thể bị bỏ qua lúc cao tải —
+    # chấp nhận được vì dashboard chỉ cần tươi trong ngày. Watchdog bên Apps
+    # Script mới là thứ phát hiện khi job không chạy hẳn.
+    - cron: "15 23 * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [chay-pipeline]
+
+concurrency:
+  group: pipeline-hang-ngay
+  cancel-in-progress: false
+
+jobs:
+  chay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Test chạy trước. Logic sai thì thà không cập nhật còn hơn ghi đè số
+      # đúng bằng số sai — dashboard sẽ giữ số cũ kèm cảnh báo "dữ liệu cũ".
+      - name: Kiểm tra logic
+        run: python -m pytest tests/ -q
+
+      - name: Chạy pipeline
+        env:
+          PXV_BACKEND: sheets
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          PXV_SHEET_NHAP_LIEU: ${{ vars.PXV_SHEET_NHAP_LIEU }}
+          PXV_SHEET_KHO: ${{ vars.PXV_SHEET_KHO }}
+          PXV_SHEET_DASHBOARD: ${{ vars.PXV_SHEET_DASHBOARD }}
+          TZ: Asia/Ho_Chi_Minh
+        run: python -m pxv.run_daily
+
+      # Commit một dấu vết nhỏ mỗi ngày để repo luôn có hoạt động.
+      # GitHub TỰ TẮT scheduled workflow sau 60 ngày repo không thay đổi —
+      # khi pipeline ổn định sẽ không ai commit nữa, nên phải tự tạo hoạt động.
+      - name: Ghi dấu lần chạy
+        if: success()
+        run: |
+          mkdir -p state
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > state/last_run.txt
+          git config user.name  "pxv-pipeline"
+          git config user.email "actions@github.com"
+          git add state/last_run.txt
+          git diff --staged --quiet || git commit -m "chore: pipeline chạy $(date -u +%F)"
+          git push

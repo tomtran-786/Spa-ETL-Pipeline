@@ -25,3 +25,6 @@ venv/
 !.vscode/*.json
 service-account*.json
 .env
+
+# macOS
+.DS_Store

@@ -91,8 +91,8 @@ pxv/
 
 apps_script/    8 file .gs dán vào Google Sheets
                 → HUONG_DAN_CAI_DAT.md: hướng dẫn cài từng bước
-tests/          82 test, dùng dữ liệu bịa
-scripts/        purge_pii_history.sh — dọn dữ liệu khỏi lịch sử git
+tests/          122 test, dùng dữ liệu bịa
+scripts/        purge_pii_history.sh · migrate_lead_csv.py
 spa.ipynb       Sổ tay khám phá ad-hoc, import từ pxv
 ```
 

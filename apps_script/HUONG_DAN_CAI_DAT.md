@@ -183,9 +183,9 @@ Bỏ tick "Notify people" — service account không đọc email.
 
 ## Việc cần làm trước khi cho sales dùng
 
-**Sửa danh sách nhân viên.** Tab `DANH_MỤC`, cột `CHATPAGE` đang là `Sales 1/2/3` — đổi thành tên thật.
+**Sửa danh sách nhân viên.** Tab `DANH_MỤC`, cột `CHATPAGE` đang là `Sales 1/2/3` và cột `TƯ VẤN - SALE` đang là tên mẫu — đổi cả hai thành tên thật.
 
-**Rà lại các danh mục khác** trong `DANH_MỤC`: `NGUỒN`, `TT_*`, `LÝ DO CHƯA CÓ SĐT`. Sửa cho khớp cách gọi ở spa.
+**Rà lại các danh mục khác** trong `DANH_MỤC`: `NGUỒN`, `TÌNH TRẠNG`, `TRẠNG THÁI`, `TƯ VẤN - SALE`. Sửa cho khớp cách gọi ở spa.
 
 **Nếu thêm `NGUỒN` mới**, phải báo người kỹ thuật thêm vào bảng gom kênh trong `pxv/mappings.py`, không thì nguồn đó rơi vào nhóm "Khác" trên dashboard.
 
@@ -214,10 +214,10 @@ Sự cố khi đã vận hành: xem [RUNBOOK.md](../RUNBOOK.md).
 ## Kiểm tra cuối
 
 - [ ] Thư mục `Drive/PXV/` có 3 spreadsheet + 2 thư mục con
-- [ ] `PXV_NHẬP_LIỆU` có 6 tab, tab `LEAD` có 17 cột
+- [ ] `PXV_NHẬP_LIỆU` có 6 tab, tab `LEAD` có 16 cột
 - [ ] Cột `SỐ ĐT` ở tab `LEAD` định dạng text — gõ thử `0390000001`, số 0 đầu **không** bị mất
 - [ ] Gõ thử một dòng: cột `NGÀY` tự điền ngày hôm nay
-- [ ] Chọn `TT_ĐẶT_HẸN` = "Đặt hẹn" khi chưa nhập SĐT → bị chặn kèm thông báo đỏ
+- [ ] Chọn `TRẠNG THÁI` = "Đặt hẹn" khi chưa nhập SĐT → bị chặn kèm thông báo đỏ
 - [ ] Gõ `instgram` vào cột `NGUỒN` → tự sửa thành `Instagram`
 - [ ] Menu 🔄 PXV → Kiểm tra cấu hình: toàn ✅ (trừ `GITHUB_TOKEN` nếu bỏ qua Bước 10)
 - [ ] Apps Script → Triggers: đủ 4 trigger

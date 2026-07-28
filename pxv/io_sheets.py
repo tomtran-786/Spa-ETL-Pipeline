@@ -62,6 +62,9 @@ def load_leads() -> pd.DataFrame:
     df = _read_sheet(config.SHEET_ID_NHAP_LIEU, config.TAB_LEAD).dropna(how="all")
     schema.validate_headers(df, schema.LEAD_REQUIRED, "lead (Google Sheets)")
     df = schema.rename_status_columns(df)
+    for c in schema.LEAD_OPTIONAL:      # file cũ thiếu cột nào thì tạo rỗng
+        if c not in df.columns:
+            df[c] = pd.NA
     df["Phone_Clean"] = df["SỐ ĐT"].apply(clean_phone)
     df["Loại SĐT"] = df["SỐ ĐT"].apply(phone_kind)
     df["Ngày Lead"] = df["NGÀY"].apply(parse_date_vn)

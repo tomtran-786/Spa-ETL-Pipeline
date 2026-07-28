@@ -74,7 +74,7 @@ function _dongTrong(sheet, row) {
  *   - NGÀY HẸN   : cột pipeline thật sự dùng để tính [F]3. Dòng có ngày hẹn mà
  *                  thiếu SĐT sẽ bị dropna() nuốt im lặng — một cuộc hẹn thật
  *                  biến mất khỏi phễu mà không ai biết.
- *   - TT_ĐẶT_HẸN : cột trạng thái sales tự ghi, canh thêm cho chắc.
+ *   - TRẠNG THÁI : cột trạng thái sales tự ghi, canh thêm cho chắc.
  *
  * KHÔNG tự hoàn tác khi sales sửa nhiều ô cùng lúc. Lý do: Google không cung
  * cấp e.oldValue cho vùng nhiều ô, mà range.setValue('') thì ghi rỗng lên TOÀN
@@ -85,7 +85,7 @@ function _chanDatHenKhiThieuSdt(sheet, e, cols) {
   const colSdt = cols[LEAD_COLS.SDT];
   if (!colSdt) return;
 
-  const canhCac = [cols[LEAD_COLS.NGAY_HEN], cols[LEAD_COLS.TT_DAT_HEN]]
+  const canhCac = [cols[LEAD_COLS.NGAY_HEN], cols[LEAD_COLS.TRANG_THAI]]
     .filter(Boolean);
   const cot = e.range.getColumn();
   const soCot = e.range.getNumColumns();
@@ -126,13 +126,13 @@ function _chanDatHenKhiThieuSdt(sheet, e, cols) {
     '⚠️ Thiếu số điện thoại', 15);
 }
 
-/** Dòng này đã sang bước đặt hẹn chưa (theo NGÀY HẸN hoặc TT_ĐẶT_HẸN)? */
+/** Dòng này đã sang bước đặt hẹn chưa (theo NGÀY HẸN hoặc TRẠNG THÁI)? */
 function _dongNaySangDatHen(sheet, row, cols) {
   const colHen = cols[LEAD_COLS.NGAY_HEN];
   if (colHen && String(sheet.getRange(row, colHen).getValue() || '').trim()) {
     return true;
   }
-  const colTT = cols[LEAD_COLS.TT_DAT_HEN];
+  const colTT = cols[LEAD_COLS.TRANG_THAI];
   if (!colTT) return false;
   const gt = String(sheet.getRange(row, colTT).getValue() || '').trim().toUpperCase();
   return TRANG_THAI_CAN_SDT.some(function (t) { return gt.indexOf(t) >= 0; });

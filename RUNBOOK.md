@@ -58,8 +58,8 @@ Mỗi khách nhắn tin = 1 dòng mới trong sheet **LEAD**.
 1. Gõ nội dung vào dòng trống tiếp theo — **cột NGÀY tự điền**, không cần gõ
 2. Nhập **SỐ ĐT** nếu xin được. Chưa xin được thì chọn lý do ở cột **LÝ DO CHƯA CÓ SĐT**
 3. Chọn **NGUỒN** từ danh sách xổ xuống (gõ sai chính tả hệ thống tự sửa)
-4. Khi khách đồng ý đến, đổi **TT_ĐẶT_HẸN** thành `Đặt hẹn` và điền **NGÀY HẸN**
-5. Khách mua rồi thì đổi **TT_CHỐT_ĐƠN** thành `Chốt đơn`
+4. Khi khách đồng ý đến, đổi **TRẠNG THÁI** thành `ĐẶT HẸN` và điền **NGÀY HẸN**
+5. Khách làm xong dịch vụ thì đổi **TRẠNG THÁI** thành `ĐÃ LÀM DV`
 
 **Không sửa** các cột nền vàng — đó là cột hệ thống tự tính.
 
@@ -136,7 +136,7 @@ Mở Google Sheet nhập liệu → menu **🔄 PXV** → **Xem trạng thái d�
 Đây là chặn có chủ đích, không phải lỗi. Khách đã hẹn đến cửa hàng thì phải có số để gọi xác nhận.
 
 1. Xin số điện thoại khách, điền vào cột **SỐ ĐT**
-2. Rồi mới đổi cột **TT_ĐẶT_HẸN**
+2. Rồi mới đổi cột **TRẠNG THÁI**
 
 Nếu khách nhất định không cho số nhưng vẫn hẹn đến (hiếm):
 1. Điền cột **LÝ DO CHƯA CÓ SĐT** = `Khách chưa cho`

@@ -28,10 +28,9 @@ const LEAD_HEADERS = [
   'NGUỒN',
   'BÀI QC',               // để quy kết chi phí tới từng bài quảng cáo
   'QUAN TÂM',
-  'TÌNH TRẠNG',
-  'TT_QUAN_TÂM',          // 3 chặng: Quan tâm -> Đặt hẹn -> Chốt đơn
-  'TT_ĐẶT_HẸN',
-  'TT_CHỐT_ĐƠN',
+  'TÌNH TRẠNG',           // tình trạng tương tác (Nhắn Qua Zalo, CẦN GỌI LẠI…)
+  'TRẠNG THÁI',           // trạng thái xử lý     (ĐẶT HẸN, ĐÃ LÀM DV, DỜI LỊCH…)
+  'TƯ VẤN - SALE',        // người phụ trách
   'GIỜ HẸN',
   'NGÀY HẸN',
   'GHI CHÚ',
@@ -111,8 +110,8 @@ function dungHeThong() {
 // --- Sheet nhập liệu -----------------------------------------------------
 
 function _dungSheetNhapLieu(ss) {
-  _taoTab(ss, 'DANH_MỤC', ['NGUỒN', 'NHÓM SP', 'TT_QUAN_TÂM', 'TT_ĐẶT_HẸN',
-                           'TT_CHỐT_ĐƠN', 'LÝ DO CHƯA CÓ SĐT', 'KÊNH (đã gom)',
+  _taoTab(ss, 'DANH_MỤC', ['NGUỒN', 'NHÓM SP', 'TÌNH TRẠNG', 'TRẠNG THÁI',
+                           'TƯ VẤN - SALE', 'LÝ DO CHƯA CÓ SĐT', 'KÊNH (đã gom)',
                            'LOẠI TIN NHẮN', 'CHATPAGE']);
   _dienDanhMuc(ss.getSheetByName('DANH_MỤC'));
 
@@ -144,9 +143,15 @@ function _dienDanhMuc(s) {
      'Tiktok học viện', 'Instagram', 'Hotline', 'Zalo', 'Khách cũ',
      'Khách giới thiệu'],
     ['DỊCH VỤ', 'ĐÀO TẠO'],
-    ['Quan tâm', 'Chỉ hỏi giá', 'Không phản hồi'],
-    ['Đặt hẹn', 'Đã làm DV', 'Hủy lịch', 'Bom lịch'],
-    ['Chốt đơn', 'Không chốt'],
+    // TÌNH TRẠNG và TRẠNG THÁI dùng chung danh sách giá trị, đúng như sheet gốc.
+    ['Nhắn Qua Zalo', 'CẦN GỌI LẠI', 'KHÁCH CHỈ NT', 'CHỜ TRẢ LỜI',
+     'KHÔNG TƯƠNG TÁC', 'BẤM QC TỰ ĐỘNG', 'GẤP', 'Ứng tuyển',
+     'ĐẶT HẸN', 'ĐÃ LÀM DV', 'DỜI LỊCH'],
+    ['Nhắn Qua Zalo', 'CẦN GỌI LẠI', 'KHÁCH CHỈ NT', 'CHỜ TRẢ LỜI',
+     'KHÔNG TƯƠNG TÁC', 'BẤM QC TỰ ĐỘNG', 'GẤP', 'Ứng tuyển',
+     'ĐẶT HẸN', 'ĐÃ LÀM DV', 'DỜI LỊCH'],
+    ['Trường Khang', 'Hoàng Diễm', 'Bảo Bình', 'Thanh Hằng', 'Thùy Dương',
+     'Mai Thy', 'Lễ Tân'],   // đổi cho khớp nhân sự hiện tại
     ['Khách chưa cho', 'Chỉ hỏi giá', 'Spam-ads', 'Khách cũ đã có số',
      'Chưa kịp hỏi'],
     // KÊNH ĐÃ GOM — nhiều NGUỒN gom về một kênh ('Fanpage PXV' và 'FB Cô Hường'
@@ -196,7 +201,7 @@ function _dinhDangLead(lead) {
   lead.setColumnWidths(1, LEAD_HEADERS.length, 130);
 
   // Tô đỏ dòng đã chuyển Đặt hẹn mà vẫn thiếu SĐT (onEdit chặn, đây là lớp 2)
-  const colSdt = _chuCot(iSdt), colTT = _chuCot(LEAD_HEADERS.indexOf('TT_ĐẶT_HẸN') + 1);
+  const colSdt = _chuCot(iSdt), colTT = _chuCot(LEAD_HEADERS.indexOf('TRẠNG THÁI') + 1);
   const rule = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=AND($' + colTT + '2<>"",$' + colSdt + '2="")')
     .setBackground('#f4cccc')
@@ -209,16 +214,16 @@ function _datValidationLead(ss, lead) {
   const dm = ss.getSheetByName('DANH_MỤC');
   // cột trong LEAD -> cột trong DANH_MỤC
   const map = {
-    'NGUỒN': 'A', 'NHÓM SP': 'B', 'TT_QUAN_TÂM': 'C', 'TT_ĐẶT_HẸN': 'D',
-    'TT_CHỐT_ĐƠN': 'E', 'LÝ DO CHƯA CÓ SĐT': 'F', 'LOẠI TIN NHẮN': 'H',
+    'NGUỒN': 'A', 'NHÓM SP': 'B', 'TÌNH TRẠNG': 'C', 'TRẠNG THÁI': 'D',
+    'TƯ VẤN - SALE': 'E', 'LÝ DO CHƯA CÓ SĐT': 'F', 'LOẠI TIN NHẮN': 'H',
     'CHATPAGE': 'I',
   };
   Object.keys(map).forEach(function (ten) {
     const i = LEAD_HEADERS.indexOf(ten) + 1;
     if (!i) return;
-    // TT_ĐẶT_HẸN dùng Reject vì nó quyết định bước phễu; các cột khác dùng
+    // TRẠNG THÁI dùng Reject vì nó quyết định bước phễu; các cột khác dùng
     // cảnh báo mềm, vì sales hay paste cả khối và Reject sẽ làm họ bỏ trống cột.
-    const chatChe = (ten === 'TT_ĐẶT_HẸN');
+    const chatChe = (ten === 'TRẠNG THÁI');
     const rule = SpreadsheetApp.newDataValidation()
       .requireValueInRange(dm.getRange(map[ten] + '2:' + map[ten]), true)
       .setAllowInvalid(!chatChe)
@@ -268,7 +273,7 @@ function _dungTabHuongDan(ss) {
     [''],
     ['NHẬP LIỆU'],
     ['- Xin được SĐT thì nhập ngay. Chưa xin được thì chọn LÝ DO CHƯA CÓ SĐT'],
-    ['- Chuyển TT_ĐẶT_HẸN sang "Đặt hẹn" bắt buộc phải có SĐT (hệ thống chặn)'],
+    ['- Chuyển TRẠNG THÁI sang "ĐẶT HẸN" bắt buộc phải có SĐT (hệ thống chặn)'],
     ['- NGUỒN gõ sai chính tả hệ thống tự sửa'],
     [''],
     ['KHI CÓ SỰ CỐ — xem RUNBOOK.md, hoặc bấm menu 🔄 PXV > Xem trạng thái'],

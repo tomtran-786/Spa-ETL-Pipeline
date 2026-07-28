@@ -9,17 +9,32 @@ from __future__ import annotations
 
 import pandas as pd
 
-# File lead xuất từ Google Sheets có 3 cột cùng tên "TRẠNG THÁI"; pandas tự
-# đánh số hậu tố. Đây là 3 chặng của cùng một khách:
-#   TRẠNG THÁI    -> Quan tâm
-#   TRẠNG THÁI.1  -> Đặt hẹn
-#   TRẠNG THÁI.2  -> Chốt đơn
-# Khi dựng sheet mới sẽ đổi hẳn thành TT_QUAN_TÂM / TT_ĐẶT_HẸN / TT_CHỐT_ĐƠN.
+# Sheet gốc có HAI cột trạng thái riêng biệt, cùng dùng một danh sách giá trị:
+#   TÌNH TRẠNG  — tình trạng tương tác  (Nhắn Qua Zalo, CẦN GỌI LẠI, KHÁCH CHỈ NT…)
+#   TRẠNG THÁI  — trạng thái xử lý      (ĐẶT HẸN, ĐÃ LÀM DV, DỜI LỊCH…)
+# và một cột người phụ trách: TÊN TƯ VẤN - SALE.
+#
+# File CSV cũ bị LỆCH CỘT khi export: 'TRẠNG THÁI' rỗng hoàn toàn, 'TRẠNG
+# THÁI.1' chỉ còn 2 dòng, còn 'TRẠNG THÁI.2' lại chứa TÊN NHÂN VIÊN. Dữ liệu
+# trạng thái thật nằm nguyên trong cột 'TÌNH TRẠNG' (1.373 dòng, khớp 7/9 giá
+# trị của dropdown trong sheet).
+#
+# Vì vậy khi đọc file cũ: giữ 'TÌNH TRẠNG', đổi 'TRẠNG THÁI.2' thành cột người
+# phụ trách, bỏ hai cột rỗng còn lại.
 STATUS_RENAME = {
-    "TRẠNG THÁI": "TT_QUAN_TÂM",
-    "TRẠNG THÁI.1": "TT_ĐẶT_HẸN",
-    "TRẠNG THÁI.2": "TT_CHỐT_ĐƠN",
+    "TRẠNG THÁI.2": "TƯ VẤN - SALE",
 }
+
+# Giá trị hợp lệ của hai cột trạng thái — lấy từ dropdown trong sheet gốc,
+# cộng thêm các giá trị đang có thật trong dữ liệu.
+TRANG_THAI_VALUES = [
+    "ĐẶT HẸN", "ĐÃ LÀM DV", "DỜI LỊCH", "KHÁCH CHỈ NT", "Nhắn Qua Zalo",
+    "CẦN GỌI LẠI", "CHỜ TRẢ LỜI", "GẤP", "Ứng tuyển",
+    "KHÔNG TƯƠNG TÁC", "BẤM QC TỰ ĐỘNG",
+]
+
+# Giá trị nghĩa là khách đã sang bước có lịch hẹn -> bắt buộc phải có SĐT.
+TRANG_THAI_CAN_SDT = ["ĐẶT HẸN", "ĐÃ LÀM DV", "DỜI LỊCH"]
 
 LEAD_REQUIRED = [
     "NGÀY",
@@ -33,6 +48,10 @@ LEAD_REQUIRED = [
     "TÌNH TRẠNG",
     "NGÀY HẸN",
 ]
+
+# TRẠNG THÁI và TƯ VẤN - SALE là tùy chọn: file CSV cũ bị lệch cột nên không
+# có, nhưng sheet mới thì có. Thiếu cũng không chặn pipeline.
+LEAD_OPTIONAL = ["TRẠNG THÁI", "TƯ VẤN - SALE", "GIỜ HẸN", "BÀI QC"]
 
 HEN_REQUIRED = ["SỐ ĐT", "NGÀY HẸN"]
 
@@ -83,6 +102,8 @@ MASTER_COLUMNS = [
     "NGUỒN",
     "QUAN TÂM",
     "TÌNH TRẠNG",
+    "TRẠNG THÁI",
+    "TƯ VẤN - SALE",
     "BÀI QC",
     "Mã hóa đơn",
     "Mã khách hàng",

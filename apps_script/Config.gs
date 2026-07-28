@@ -56,15 +56,15 @@ const LEAD_COLS = {
   TEN: 'TÊN KHÁCH HÀNG',
   SDT: 'SỐ ĐT',
   NGUON: 'NGUỒN',
-  TT_QUAN_TAM: 'TT_QUAN_TÂM',
-  TT_DAT_HEN: 'TT_ĐẶT_HẸN',
-  TT_CHOT_DON: 'TT_CHỐT_ĐƠN',
+  TINH_TRANG: 'TÌNH TRẠNG',
+  TRANG_THAI: 'TRẠNG THÁI',
+  TU_VAN: 'TƯ VẤN - SALE',
   NGAY_HEN: 'NGÀY HẸN',
   LY_DO_CHUA_CO_SDT: 'LÝ DO CHƯA CÓ SĐT',
 };
 
-/** Giá trị của TT_ĐẶT_HẸN nghĩa là khách đã sang bước đặt hẹn -> bắt buộc phải có SĐT. */
-const TRANG_THAI_CAN_SDT = ['ĐẶT HẸN', 'ĐÃ LÀM DV', 'CHỐT ĐƠN', 'CHỐT'];
+/** Giá trị TRẠNG THÁI nghĩa là khách đã có lịch hẹn -> bắt buộc phải có SĐT. */
+const TRANG_THAI_CAN_SDT = ['ĐẶT HẸN', 'ĐÃ LÀM DV', 'DỜI LỊCH'];
 
 function _alertEmails() {
   return CONFIG.ALERT_EMAIL.split(',').map(function (s) { return s.trim(); })

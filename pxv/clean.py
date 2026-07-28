@@ -85,16 +85,52 @@ def clean_money(value) -> int:
         return 0
 
 
-def parse_date_vn(value):
+# Chuỗi chỉ có ngày và tháng, không có năm: '10/01', '22/1', '4/1'.
+_DDMM = re.compile(r"^(\d{1,2})\s*[/-]\s*(\d{1,2})$")
+
+
+def parse_date_vn(value, sau_ngay=None):
     """Parse ngày kiểu Việt (dd/mm/yyyy). Không đoán, không sửa năm.
 
     Code cũ ép ``year == 2025 and month <= 3`` thành 2026 để vá 35 dòng gõ nhầm.
     Sang 2027 quy tắc đó sẽ âm thầm bóp méo dữ liệu thật, nên bỏ hẳn. Ngày nằm
     ngoài khoảng hợp lệ được báo riêng qua :func:`out_of_window_mask`.
+
+    ``sau_ngay`` — chỉ dùng cho DỮ LIỆU CŨ. Sales từng gõ ngày hẹn thiếu năm
+    ('10/01', '22/1'): 327/328 dòng không parse được, khiến mọi biểu đồ theo
+    ngày hẹn trống trơn. Truyền ngày lead vào đây thì năm được suy sao cho ngày
+    hẹn KHÔNG SỚM HƠN ngày lead — hẹn luôn ở tương lai, nên quy tắc này tự xử
+    lý được cả ca hẹn vắt qua năm (lead 28/12, hẹn 05/01 năm sau).
+
+    Không truyền ``sau_ngay`` thì chuỗi thiếu năm trả ``NaT`` như cũ — cố tình,
+    để không đoán bừa. Sheet mới đã ép ``dd/MM/yyyy`` nên dữ liệu mới không cần.
     """
     if pd.isna(value):
         return pd.NaT
-    return pd.to_datetime(str(value).strip(), dayfirst=True, errors="coerce")
+    text = str(value).strip()
+    if not text:
+        return pd.NaT
+
+    m = _DDMM.match(text)
+    if m:
+        if sau_ngay is None or pd.isna(sau_ngay):
+            return pd.NaT
+        return _suy_nam(int(m.group(1)), int(m.group(2)), pd.Timestamp(sau_ngay))
+
+    return pd.to_datetime(text, dayfirst=True, errors="coerce")
+
+
+def _suy_nam(ngay: int, thang: int, moc: pd.Timestamp):
+    """Chọn năm gần nhất sao cho (ngày, tháng) không sớm hơn mốc."""
+    moc = moc.normalize()
+    for nam in (moc.year, moc.year + 1):
+        try:
+            d = pd.Timestamp(year=nam, month=thang, day=ngay)
+        except ValueError:      # 31/02 chẳng hạn
+            return pd.NaT
+        if d >= moc:
+            return d
+    return pd.NaT
 
 
 def out_of_window_mask(series: pd.Series, lo: pd.Timestamp, hi: pd.Timestamp) -> pd.Series:

@@ -30,6 +30,8 @@ def main(strict: bool = True) -> int:
           f"hóa đơn {df_inv['Mã hóa đơn'].nunique():,}")
 
     costs = io.load_ad_costs()
+    # Đọc mốc lần trước TRƯỚC khi ghi đè, để phát hiện dữ liệu bị xóa ở nguồn.
+    truoc = quality.doc_moc_cu(io.load_previous_dq())
     if not costs.empty:
         print(f"  chi phí quảng cáo {len(costs):,} dòng")
 
@@ -41,7 +43,7 @@ def main(strict: bool = True) -> int:
     hieu_qua = marts.build_hieu_qua_kenh(master, costs, dim_khach)
 
     print("Kiểm chất lượng...")
-    report = quality.run_checks(df_lead, df_inv, master, costs)
+    report = quality.run_checks(df_lead, df_inv, master, costs, truoc)
     print(report.to_frame().to_string(index=False))
 
     tables = {

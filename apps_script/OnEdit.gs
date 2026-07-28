@@ -67,26 +67,75 @@ function _dongTrong(sheet, row) {
 }
 
 /**
- * Khách chuyển sang bước Đặt hẹn thì bắt buộc phải có SĐT — không có số thì
- * không thể gọi xác nhận lịch, và cũng không thể đối chiếu với hóa đơn sau này.
+ * Khách sang bước Đặt hẹn thì bắt buộc phải có SĐT — không có số thì không gọi
+ * xác nhận lịch được, và cũng không đối chiếu được với hóa đơn sau này.
+ *
+ * Canh CẢ HAI cột:
+ *   - NGÀY HẸN   : cột pipeline thật sự dùng để tính [F]3. Dòng có ngày hẹn mà
+ *                  thiếu SĐT sẽ bị dropna() nuốt im lặng — một cuộc hẹn thật
+ *                  biến mất khỏi phễu mà không ai biết.
+ *   - TT_ĐẶT_HẸN : cột trạng thái sales tự ghi, canh thêm cho chắc.
+ *
+ * KHÔNG tự hoàn tác khi sales sửa nhiều ô cùng lúc. Lý do: Google không cung
+ * cấp e.oldValue cho vùng nhiều ô, mà range.setValue('') thì ghi rỗng lên TOÀN
+ * BỘ vùng. Bản cũ làm vậy nên paste 50 dòng chỉ 1 dòng thiếu SĐT là mất trắng
+ * cả 50. Thà để dữ liệu sai và tô đỏ, còn hơn xóa mất dữ liệu đúng.
  */
 function _chanDatHenKhiThieuSdt(sheet, e, cols) {
-  const colTT = cols[LEAD_COLS.TT_DAT_HEN];
   const colSdt = cols[LEAD_COLS.SDT];
-  if (!colTT || !colSdt) return;
-  if (e.range.getColumn() !== colTT) return;
+  if (!colSdt) return;
 
-  const giaTri = String(e.range.getValue() || '').trim().toUpperCase();
-  if (!TRANG_THAI_CAN_SDT.some(function (t) { return giaTri.indexOf(t) >= 0; })) return;
+  const canhCac = [cols[LEAD_COLS.NGAY_HEN], cols[LEAD_COLS.TT_DAT_HEN]]
+    .filter(Boolean);
+  const cot = e.range.getColumn();
+  const soCot = e.range.getNumColumns();
+  const chamCotCanh = canhCac.some(function (c) {
+    return c >= cot && c < cot + soCot;
+  });
+  if (!chamCotCanh) return;
 
-  const sdt = String(sheet.getRange(e.range.getRow(), colSdt).getValue() || '').trim();
-  if (sdt) return;
+  const dongDau = e.range.getRow();
+  const soDong = e.range.getNumRows();
+  const thieu = [];
+  for (let r = dongDau; r < dongDau + soDong; r++) {
+    if (!_dongNaySangDatHen(sheet, r, cols)) continue;
+    const sdt = String(sheet.getRange(r, colSdt).getValue() || '').trim();
+    if (!sdt) thieu.push(r);
+  }
+  if (!thieu.length) return;
 
-  e.range.setValue(e.oldValue === undefined ? '' : e.oldValue);
+  const motO = (soDong === 1 && soCot === 1);
+  if (motO && e.oldValue !== undefined) {
+    // Sửa đúng một ô và biết giá trị cũ -> hoàn tác an toàn.
+    e.range.setValue(e.oldValue);
+    sheet.getParent().toast(
+      'Phải nhập SỐ ĐT trước khi chuyển khách sang Đặt hẹn. Chưa xin được số ' +
+      'thì chọn lý do ở cột "' + LEAD_COLS.LY_DO_CHUA_CO_SDT + '".',
+      '⛔ Thiếu số điện thoại', 12);
+    return;
+  }
+
+  // Sửa nhiều ô (hoặc không biết giá trị cũ): giữ nguyên dữ liệu, chỉ đánh dấu.
+  thieu.forEach(function (r) {
+    sheet.getRange(r, 1, 1, sheet.getLastColumn()).setBackground('#f4cccc');
+  });
   sheet.getParent().toast(
-    'Phải nhập SỐ ĐT trước khi chuyển khách sang "Đặt hẹn". ' +
-    'Chưa xin được số thì chọn lý do ở cột "' + LEAD_COLS.LY_DO_CHUA_CO_SDT + '".',
-    '⛔ Thiếu số điện thoại', 12);
+    thieu.length + ' dòng có ngày hẹn nhưng chưa có SĐT (dòng ' +
+    thieu.slice(0, 5).join(', ') + (thieu.length > 5 ? '…' : '') +
+    '). Đã tô đỏ — bổ sung SĐT để không mất khỏi báo cáo phễu.',
+    '⚠️ Thiếu số điện thoại', 15);
+}
+
+/** Dòng này đã sang bước đặt hẹn chưa (theo NGÀY HẸN hoặc TT_ĐẶT_HẸN)? */
+function _dongNaySangDatHen(sheet, row, cols) {
+  const colHen = cols[LEAD_COLS.NGAY_HEN];
+  if (colHen && String(sheet.getRange(row, colHen).getValue() || '').trim()) {
+    return true;
+  }
+  const colTT = cols[LEAD_COLS.TT_DAT_HEN];
+  if (!colTT) return false;
+  const gt = String(sheet.getRange(row, colTT).getValue() || '').trim().toUpperCase();
+  return TRANG_THAI_CAN_SDT.some(function (t) { return gt.indexOf(t) >= 0; });
 }
 
 /**

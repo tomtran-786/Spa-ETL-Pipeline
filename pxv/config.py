@@ -31,6 +31,7 @@ TAB_LEAD = "LEAD"
 TAB_INVOICES = "INVOICES_RAW"
 TAB_PANCAKE = "PANCAKE_RAW"
 TAB_CHIPHI = "CHI_PHÍ_QC"
+TAB_DQ = "DQ_STATUS"
 
 # Chi phí quảng cáo — marketing nhập tay ~10 dòng/tháng.
 # Không có file này thì pipeline vẫn chạy, chỉ là không tính được CPL/CAC/ROAS.

@@ -46,13 +46,53 @@ jobs:
       - name: Kiểm tra logic
         run: python -m pytest tests/ -q
 
+      # Kiểm biến TRƯỚC khi chạy pipeline. Thiếu secret mà để Python phát hiện
+      # thì lỗi hiện ra dưới dạng traceback, không nói được phải vào đâu để sửa.
+      #
+      # LƯU Ý: GCP_SA_KEY lấy từ tab Secrets, còn 3 ID sheet lấy từ tab
+      # Variables. Đây là hai tab KHÁC NHAU trong Settings > Secrets and
+      # variables > Actions — dán nhầm tab là biến về rỗng và GitHub không báo gì.
+      - name: Kiểm tra cấu hình
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          PXV_SHEET_NHAP_LIEU: ${{ vars.PXV_SHEET_NHAP_LIEU || secrets.PXV_SHEET_NHAP_LIEU }}
+          PXV_SHEET_KHO: ${{ vars.PXV_SHEET_KHO || secrets.PXV_SHEET_KHO }}
+          PXV_SHEET_DASHBOARD: ${{ vars.PXV_SHEET_DASHBOARD || secrets.PXV_SHEET_DASHBOARD }}
+        run: |
+          thieu=0
+          bao() { echo "::error::$1"; thieu=1; }
+
+          if [ -z "$GCP_SA_KEY" ]; then
+            bao "Thiếu secret GCP_SA_KEY. Vào Settings > Secrets and variables > Actions,
+          tab SECRETS (không phải Variables), New repository secret, tên đúng là GCP_SA_KEY,
+          giá trị là TOÀN BỘ nội dung file JSON của service account (gồm cả dấu ngoặc nhọn).
+          Nếu đã tạo rồi mà vẫn báo thiếu: kiểm tra secret có đang nằm trong một Environment
+          không — nếu có thì job này phải khai báo environment mới thấy được."
+          elif ! echo "$GCP_SA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('type')=='service_account'; print('  service account:', d['client_email'])" 2>/dev/null; then
+            bao "GCP_SA_KEY có nội dung nhưng không phải JSON service account hợp lệ.
+          Dán lại nguyên văn file JSON, đừng bọc thêm dấu nháy."
+          fi
+
+          for ten in PXV_SHEET_NHAP_LIEU PXV_SHEET_KHO PXV_SHEET_DASHBOARD; do
+            gt=$(eval echo \$$ten)
+            if [ -z "$gt" ]; then
+              bao "Thiếu $ten. Đặt ở tab VARIABLES (hoặc Secrets cũng được).
+          Giá trị là ID spreadsheet, lấy từ URL: docs.google.com/spreadsheets/d/<ID>/edit"
+            else
+              echo "  $ten = ${gt:0:12}... (${#gt} ký tự)"
+            fi
+          done
+
+          [ "$thieu" = "0" ] || { echo "::error::Dừng vì thiếu cấu hình — xem các lỗi ở trên."; exit 1; }
+          echo "✅ Đủ 4 biến cấu hình"
+
       - name: Chạy pipeline
         env:
           PXV_BACKEND: sheets
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          PXV_SHEET_NHAP_LIEU: ${{ vars.PXV_SHEET_NHAP_LIEU }}
-          PXV_SHEET_KHO: ${{ vars.PXV_SHEET_KHO }}
-          PXV_SHEET_DASHBOARD: ${{ vars.PXV_SHEET_DASHBOARD }}
+          PXV_SHEET_NHAP_LIEU: ${{ vars.PXV_SHEET_NHAP_LIEU || secrets.PXV_SHEET_NHAP_LIEU }}
+          PXV_SHEET_KHO: ${{ vars.PXV_SHEET_KHO || secrets.PXV_SHEET_KHO }}
+          PXV_SHEET_DASHBOARD: ${{ vars.PXV_SHEET_DASHBOARD || secrets.PXV_SHEET_DASHBOARD }}
           TZ: Asia/Ho_Chi_Minh
         run: python -m pxv.run_daily
 

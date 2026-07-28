@@ -75,9 +75,13 @@ def load_appointments(df_lead: pd.DataFrame) -> pd.DataFrame:
     lead (98,6% SĐT hẹn đã có trong lead) và bản gửi thêm còn trùng byte với
     bản cũ. Sales nhập một chỗ duy nhất.
     """
-    hen = df_lead.loc[df_lead["NGÀY HẸN"].notna(), ["SỐ ĐT", "NGÀY HẸN"]].copy()
+    hen = df_lead.loc[
+        df_lead["NGÀY HẸN"].notna(), ["SỐ ĐT", "NGÀY HẸN", "Ngày Lead"]].copy()
     hen["Phone_Clean"] = hen["SỐ ĐT"].apply(clean_phone)
-    hen["NGÀY HẸN"] = hen["NGÀY HẸN"].apply(parse_date_vn)
+    # Truyền ngày lead để suy năm cho ô ghi thiếu năm. Sheet mới đã ép
+    # dd/MM/yyyy nên chỉ dữ liệu cũ mới cần, nhưng để đây cho an toàn.
+    hen["NGÀY HẸN"] = [parse_date_vn(v, moc)
+                       for v, moc in zip(hen["NGÀY HẸN"], hen["Ngày Lead"])]
     hen = hen.dropna(subset=["Phone_Clean"])
     hen = (hen.sort_values(["Phone_Clean", "NGÀY HẸN"], na_position="last")
               .drop_duplicates("Phone_Clean", keep="first"))
@@ -189,3 +193,11 @@ def load_ad_costs() -> pd.DataFrame:
     except Exception:
         return ad_costs.EMPTY.copy()
     return ad_costs.normalize(df)
+
+
+def load_previous_dq() -> pd.DataFrame | None:
+    """DQ_STATUS của lần chạy trước. Phải đọc TRƯỚC khi ghi đè bảng mới."""
+    try:
+        return _read_sheet(config.SHEET_ID_DASHBOARD, config.TAB_DQ)
+    except Exception:
+        return None

@@ -98,3 +98,31 @@ def test_out_of_window_mask():
                    pd.Timestamp("2030-01-01"), pd.NaT])
     mask = out_of_window_mask(s, pd.Timestamp("2025-01-01"), pd.Timestamp("2027-12-31"))
     assert list(mask) == [True, False, True, False]
+
+
+# --- Suy năm cho ngày thiếu năm (chỉ dùng cho dữ liệu cũ) -----------------
+
+def test_thieu_nam_khong_co_moc_thi_tra_NaT():
+    """Không có mốc thì KHÔNG đoán bừa — thà trống còn hơn sai năm."""
+    assert pd.isna(parse_date_vn("10/01"))
+    assert pd.isna(parse_date_vn("22/1"))
+
+
+@pytest.mark.parametrize("hen,lead,mong_doi", [
+    ("10/01", "2026-01-05", "2026-01-10"),   # hẹn cùng tháng với lead
+    ("22/1",  "2026-01-02", "2026-01-22"),   # tháng viết tắt 1 chữ số
+    ("05/01", "2025-12-28", "2026-01-05"),   # hẹn vắt qua năm -> phải là năm sau
+    ("28/12", "2026-12-01", "2026-12-28"),   # cuối năm, không nhảy sang 2027
+])
+def test_suy_nam_tu_ngay_lead(hen, lead, mong_doi):
+    """Hẹn luôn ở tương lai, nên chọn năm gần nhất mà hẹn >= ngày lead."""
+    assert parse_date_vn(hen, pd.Timestamp(lead)) == pd.Timestamp(mong_doi)
+
+
+def test_ngay_khong_ton_tai_tra_NaT():
+    assert pd.isna(parse_date_vn("31/02", pd.Timestamp("2026-01-01")))
+
+
+def test_co_nam_day_du_thi_bo_qua_moc():
+    """Chuỗi đã có năm thì mốc không được phép ghi đè."""
+    assert parse_date_vn("19/01/2025", pd.Timestamp("2026-06-01")) == pd.Timestamp("2025-01-19")

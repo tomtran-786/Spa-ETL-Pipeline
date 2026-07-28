@@ -55,10 +55,17 @@ class DataQualityError(RuntimeError):
 
 CHAY_LUC = "Chạy lúc"
 
+# Hai mốc ghi lại mỗi lần chạy để lần sau đối chiếu. Không có chúng thì không
+# cách nào phát hiện dữ liệu bị xóa bớt ở nguồn — mọi phép kiểm khác đều so
+# nguồn với chính nó, nên xóa 500 dòng lead vẫn cho kết quả xanh.
+MOC_SO_DONG_LEAD = "Số dòng lead"
+MOC_DT_THANG_DONG = "Doanh thu tháng đã đóng"
+
 
 def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
                master: pd.DataFrame,
-               costs: pd.DataFrame | None = None) -> QualityReport:
+               costs: pd.DataFrame | None = None,
+               truoc: dict | None = None) -> QualityReport:
     rep = QualityReport()
     # Dòng đầu tiên là mốc thời gian: watchdog bên Apps Script đọc đúng dòng này
     # để biết pipeline có còn chạy không. Nếu GitHub Actions bị tắt thì GitHub
@@ -74,7 +81,75 @@ def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
     _check_mece_exhaustive(master, rep)
     _check_source_catalog(df_lead, rep)
     _check_ad_costs(costs, master, rep)
+    _check_drift(df_lead, df_inv, rep, truoc)
     return rep
+
+
+def doanh_thu_thang_da_dong(df_inv: pd.DataFrame) -> int:
+    """Doanh thu các tháng ĐÃ KẾT THÚC. Tháng đang chạy còn tăng nên không tính.
+
+    Con số này về nguyên tắc không bao giờ được đổi. Đổi tức là dữ liệu cũ bị
+    sửa hoặc bị mất.
+    """
+    if df_inv.empty or "Ngày HĐ" not in df_inv:
+        return 0
+    dau_thang_nay = pd.Timestamp.now().normalize().replace(day=1)
+    da_dong = df_inv[df_inv["Ngày HĐ"] < dau_thang_nay]
+    return int(da_dong["Doanh Thu (VNĐ)"].sum())
+
+
+def _check_drift(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
+                 rep: QualityReport, truoc: dict | None) -> None:
+    """So với lần chạy trước: dữ liệu chỉ được thêm, không được mất.
+
+    Đây là phép kiểm DUY NHẤT bắt được việc ai đó xóa dòng ở sheet nguồn. Các
+    phép kiểm còn lại đều so nguồn với kết quả — cùng đến từ nguồn đã bị xóa
+    nên hai vế vẫn bằng nhau và báo xanh.
+    """
+    nay_lead = len(df_lead)
+    nay_dt = doanh_thu_thang_da_dong(df_inv)
+
+    # Ghi mốc cho lần sau, dù lần này có so được hay không.
+    rep.add(MOC_SO_DONG_LEAD, OK, nay_lead, "mốc để lần chạy sau đối chiếu")
+    rep.add(MOC_DT_THANG_DONG, OK, nay_dt, "mốc để lần chạy sau đối chiếu")
+
+    if not truoc:
+        rep.add("Dữ liệu không bị mất", WARN, "chưa có mốc cũ",
+                "lần chạy đầu tiên — từ lần sau sẽ đối chiếu được")
+        return
+
+    truoc_lead = truoc.get(MOC_SO_DONG_LEAD)
+    if truoc_lead is not None:
+        giam = truoc_lead - nay_lead
+        rep.add("Số dòng lead không giảm", FAIL if giam > 0 else OK,
+                f"{nay_lead} (lần trước {truoc_lead})",
+                f"MẤT {giam} dòng — ai đó đã xóa ở sheet nguồn" if giam > 0 else "")
+
+    truoc_dt = truoc.get(MOC_DT_THANG_DONG)
+    if truoc_dt:
+        lech = abs(nay_dt - truoc_dt) / truoc_dt
+        rep.add("Doanh thu tháng đã đóng không đổi",
+                FAIL if lech > config.CLOSED_MONTH_DRIFT else OK,
+                f"{nay_dt:,} (lần trước {truoc_dt:,})",
+                f"lệch {lech * 100:.2f}% — tháng đã đóng thì doanh thu không "
+                f"được đổi, nghi mất hoặc sửa dữ liệu cũ"
+                if lech > config.CLOSED_MONTH_DRIFT else "")
+
+
+def doc_moc_cu(dq_truoc: pd.DataFrame | None) -> dict:
+    """Rút 2 mốc từ bảng DQ_STATUS của lần chạy trước."""
+    moc: dict = {}
+    if dq_truoc is None or dq_truoc.empty or "tên" not in dq_truoc.columns:
+        return moc
+    for ten in (MOC_SO_DONG_LEAD, MOC_DT_THANG_DONG):
+        hang = dq_truoc[dq_truoc["tên"] == ten]
+        if hang.empty:
+            continue
+        try:
+            moc[ten] = int(str(hang.iloc[0]["giá_trị"]).replace(",", "").strip())
+        except (ValueError, TypeError):
+            pass
+    return moc
 
 
 def _check_ad_costs(costs, master: pd.DataFrame, rep: QualityReport) -> None:

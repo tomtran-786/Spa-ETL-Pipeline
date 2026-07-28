@@ -32,15 +32,19 @@ def load_appointments(df_lead: pd.DataFrame, path=None) -> pd.DataFrame:
     xác định. Code cũ khử trùng trên concat chưa sort -> kết quả phụ thuộc thứ
     tự file, chạy 2 lần có thể ra 2 giá trị khác nhau.
     """
-    from_lead = df_lead.loc[df_lead["NGÀY HẸN"].notna(), ["SỐ ĐT", "NGÀY HẸN"]].copy()
+    from_lead = df_lead.loc[
+        df_lead["NGÀY HẸN"].notna(), ["SỐ ĐT", "NGÀY HẸN", "Ngày Lead"]].copy()
 
     other = pd.read_csv(path or config.F_HEN)
     schema.validate_headers(other, schema.HEN_REQUIRED, "đặt hẹn")
     other = other[["SỐ ĐT", "NGÀY HẸN"]].copy()
+    other["Ngày Lead"] = pd.NaT     # file riêng đã có năm đầy đủ, không cần suy
 
     hen = pd.concat([from_lead, other], ignore_index=True)
     hen["Phone_Clean"] = hen["SỐ ĐT"].apply(clean_phone)
-    hen["NGÀY HẸN"] = hen["NGÀY HẸN"].apply(parse_date_vn)
+    # Truyền ngày lead để suy năm cho các ô ghi thiếu năm ('10/01', '22/1').
+    hen["NGÀY HẸN"] = [parse_date_vn(v, moc)
+                       for v, moc in zip(hen["NGÀY HẸN"], hen["Ngày Lead"])]
     hen = hen.dropna(subset=["Phone_Clean"])
     hen = (hen.sort_values(["Phone_Clean", "NGÀY HẸN"], na_position="last")
               .drop_duplicates("Phone_Clean", keep="first"))
@@ -77,3 +81,14 @@ def load_ad_costs(path=None) -> pd.DataFrame:
     if not p.exists():
         return ad_costs.EMPTY.copy()
     return ad_costs.normalize(pd.read_csv(p))
+
+
+def load_previous_dq() -> pd.DataFrame | None:
+    """DQ_STATUS của lần chạy trước, để đối chiếu chống mất dữ liệu."""
+    out = config.OUT_DIR / "PXV_DASHBOARD_DATA.xlsx"
+    if not out.exists():
+        return None
+    try:
+        return pd.read_excel(out, sheet_name="DQ_STATUS")
+    except Exception:
+        return None

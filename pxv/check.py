@@ -49,12 +49,30 @@ def main() -> int:
 
 
 def _kiem_key() -> int:
+    tren_github = os.environ.get("GITHUB_ACTIONS") == "true"
     raw = os.environ.get("GCP_SA_KEY", "")
     if not raw:
-        print("\n❌ Thiếu GCP_SA_KEY")
-        print("   Chạy ở máy:  export GCP_SA_KEY=\"$(cat service-account.json)\"")
-        print("   Trên GitHub: Settings > Secrets and variables > Actions >")
-        print("                tab SECRETS (không phải Variables) > GCP_SA_KEY")
+        print("\n❌ Thiếu biến môi trường GCP_SA_KEY")
+        if tren_github:
+            print("   Đang chạy trên GitHub Actions nhưng secret không tới được job.")
+            print("   Kiểm tra: Settings > Secrets and variables > Actions")
+            print("     - Secret phải nằm ở tab SECRETS, không phải tab Variables")
+            print("     - Tên phải đúng y hệt: GCP_SA_KEY (không thừa dấu cách)")
+            print("     - Nếu secret đặt trong một Environment thì job phải khai")
+            print("       báo `environment:` mới nhìn thấy được")
+        else:
+            print("   Đang chạy Ở MÁY BẠN, không phải trên GitHub.")
+            print()
+            print("   GitHub Secrets CHỈ tồn tại bên trong máy chủ chạy Actions —")
+            print("   chúng KHÔNG tự đồng bộ về máy. Thêm secret trên GitHub xong")
+            print("   thì ở máy vẫn phải tự khai báo biến:")
+            print()
+            print('     export GCP_SA_KEY="$(cat ~/Downloads/pxv-pipeline-xxxx.json)"')
+            print("     python -m pxv.check")
+            print()
+            print("   Còn muốn kiểm tra secret trên GitHub có đúng không, thì chạy")
+            print("   workflow rồi xem bước \"Kiểm tra cấu hình\":")
+            print("     Actions > pipeline hằng ngày > Run workflow")
         return 1
     try:
         info = json.loads(raw)

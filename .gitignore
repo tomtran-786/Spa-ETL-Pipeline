@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------
+# DỮ LIỆU KHÁCH HÀNG — TUYỆT ĐỐI KHÔNG COMMIT
+# Repo này từng để public và đã lộ tên + SĐT của ~8.000 khách.
+# Mọi file dữ liệu phải nằm ở Google Sheets/Drive, không nằm trong git.
+# ---------------------------------------------------------------
+*.csv
+*.xlsx
+*.xls
+output/
+Dashboard Link
+
+# Ngoại lệ: fixture bịa dùng cho test (không phải dữ liệu thật)
+!tests/fixtures/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Khóa truy cập
+*.json
+!.vscode/*.json
+service-account*.json
+.env

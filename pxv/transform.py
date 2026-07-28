@@ -26,7 +26,7 @@ _DEDUPED_FLAGS = FUNNEL_FLAGS + ["[Vãng lai] Có Ra Đơn", "Số lượng Lead
 LEAD_ATTRS = [
     "Phone_Clean", "Ngày Lead", "TÊN KHÁCH HÀNG", "LOẠI TIN NHẮN", "NHÓM SP",
     "CHATPAGE", "NGUỒN", "QUAN TÂM", "TÌNH TRẠNG", "TRẠNG THÁI",
-    "TƯ VẤN - SALE", "BÀI QC", "Loại SĐT",
+    "TƯ VẤN - SALE", "THÔNG TIN KHÁCH", "BÀI QC", "Loại SĐT",
 ]
 INVOICE_ATTRS = [
     "Phone_Clean", "Mã hóa đơn", "Mã khách hàng", "Tên hàng", "Ngày HĐ",

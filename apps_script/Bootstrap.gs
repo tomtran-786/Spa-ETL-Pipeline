@@ -31,6 +31,7 @@ const LEAD_HEADERS = [
   'TÌNH TRẠNG',           // tình trạng tương tác (Nhắn Qua Zalo, CẦN GỌI LẠI…)
   'TRẠNG THÁI',           // trạng thái xử lý     (ĐẶT HẸN, ĐÃ LÀM DV, DỜI LỊCH…)
   'TƯ VẤN - SALE',        // người phụ trách
+  'THÔNG TIN KHÁCH',      // ĐỢI PHẢN HỒI, QUAN TÂM/CHỐT, ĐANG TƯƠNG TÁC…
   'GIỜ HẸN',
   'NGÀY HẸN',
   'GHI CHÚ',

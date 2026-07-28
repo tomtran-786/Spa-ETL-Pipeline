@@ -22,7 +22,8 @@ import pandas as pd
 # Vì vậy khi đọc file cũ: giữ 'TÌNH TRẠNG', đổi 'TRẠNG THÁI.2' thành cột người
 # phụ trách, bỏ hai cột rỗng còn lại.
 STATUS_RENAME = {
-    "TRẠNG THÁI.2": "TƯ VẤN - SALE",
+    "TRẠNG THÁI.1": "TRẠNG THÁI",     # cột trạng thái thật (export cũ gần như rỗng)
+    "TRẠNG THÁI.2": "TƯ VẤN - SALE",  # thực chất là cột TÊN TƯ VẤN - SALE
 }
 
 # Giá trị hợp lệ của hai cột trạng thái — lấy từ dropdown trong sheet gốc,
@@ -51,7 +52,8 @@ LEAD_REQUIRED = [
 
 # TRẠNG THÁI và TƯ VẤN - SALE là tùy chọn: file CSV cũ bị lệch cột nên không
 # có, nhưng sheet mới thì có. Thiếu cũng không chặn pipeline.
-LEAD_OPTIONAL = ["TRẠNG THÁI", "TƯ VẤN - SALE", "GIỜ HẸN", "BÀI QC"]
+LEAD_OPTIONAL = ["TRẠNG THÁI", "TƯ VẤN - SALE", "THÔNG TIN KHÁCH",
+                 "GIỜ HẸN", "BÀI QC"]
 
 HEN_REQUIRED = ["SỐ ĐT", "NGÀY HẸN"]
 
@@ -80,7 +82,14 @@ def validate_headers(df: pd.DataFrame, required: list[str], source_name: str) ->
 
 
 def rename_status_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Đổi 3 cột TRẠNG THÁI trùng tên thành tên nói rõ từng chặng."""
+    """Gỡ tình trạng lệch cột của file CSV cũ.
+
+    Export cũ sinh ra ba cột cùng tên 'TRẠNG THÁI'; pandas đánh số hậu tố .1/.2.
+    Cột đầu rỗng hoàn toàn nên bỏ, rồi .1 và .2 lùi về đúng tên thật.
+    Sheet mới không còn hiện tượng này nên hàm chỉ ảnh hưởng dữ liệu cũ.
+    """
+    if "TRẠNG THÁI.1" in df.columns and "TRẠNG THÁI" in df.columns:
+        df = df.drop(columns=["TRẠNG THÁI"])
     return df.rename(columns={k: v for k, v in STATUS_RENAME.items() if k in df.columns})
 
 
@@ -104,6 +113,7 @@ MASTER_COLUMNS = [
     "TÌNH TRẠNG",
     "TRẠNG THÁI",
     "TƯ VẤN - SALE",
+    "THÔNG TIN KHÁCH",
     "BÀI QC",
     "Mã hóa đơn",
     "Mã khách hàng",

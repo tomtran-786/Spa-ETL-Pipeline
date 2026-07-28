@@ -86,7 +86,7 @@ pxv/
   io_sheets.py  Đọc/ghi Google Sheets — cùng interface với io_local
   transform.py  build_master(): gộp 3 nguồn, phân nhóm MECE, cờ phễu
   marts.py      DIM_KHACH, FUNNEL_MOI, FACT_DAILY, HIEU_QUA_KENH
-  quality.py    15 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
+  quality.py    20 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
   run_daily.py  Điểm chạy duy nhất
 
 apps_script/    8 file .gs dán vào Google Sheets

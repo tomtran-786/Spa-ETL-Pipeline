@@ -10,9 +10,12 @@ Chỉ share ĐÚNG 3 file đó, không share cả Drive — key rò rỉ thì th
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
+import math
 import os
 
+import numpy as np
 import pandas as pd
 
 from . import config, schema
@@ -126,8 +129,13 @@ def load_pancake() -> pd.DataFrame:
 
 # --- Ghi ------------------------------------------------------------------
 
-def write_table(name: str, df: pd.DataFrame, spreadsheet_id: str | None = None) -> None:
-    """Ghi đè một tab. Tự tạo tab nếu chưa có."""
+def write_table(name: str, df: pd.DataFrame, spreadsheet_id: str | None = None,
+                values: list[list] | None = None) -> None:
+    """Ghi đè một tab. Tự tạo tab nếu chưa có.
+
+    ``values`` cho phép truyền sẵn mảng ô đã ép kiểu — ``write_all`` dùng để ép
+    TOÀN BỘ bảng trước khi gọi API (xem lý do ở đó).
+    """
     import gspread
 
     sh = _client().open_by_key(spreadsheet_id or config.SHEET_ID_DASHBOARD)
@@ -145,9 +153,9 @@ def write_table(name: str, df: pd.DataFrame, spreadsheet_id: str | None = None) 
     ws.resize(rows=len(df) + 1, cols=len(df.columns))
     _set_text_columns(ws, df)
 
-    values = [list(df.columns)] + _to_cells(df)
-    for start in range(0, len(values), BATCH_ROWS):
-        chunk = values[start:start + BATCH_ROWS]
+    rows = [list(df.columns)] + (_to_cells(df) if values is None else values)
+    for start in range(0, len(rows), BATCH_ROWS):
+        chunk = rows[start:start + BATCH_ROWS]
         # value_input_option='RAW' để Sheets không diễn giải lại nội dung —
         # nếu để USER_ENTERED thì '9.420.000' thành 9.42 và '0389...' mất số 0.
         ws.update(chunk, f"A{start + 1}", value_input_option="RAW")
@@ -167,6 +175,37 @@ def _set_text_columns(ws, df: pd.DataFrame) -> None:
             pass  # định dạng hỏng không đáng làm gãy cả job
 
 
+def _o_json_duoc(v):
+    """Ép một giá trị lẻ về kiểu ``requests`` gửi JSON được.
+
+    gspread gói payload bằng ``json.dumps(..., allow_nan=False)``, nên bất kỳ
+    kiểu nào ngoài str/bool/int/float đều ném ``TypeError`` — kể cả
+    ``datetime.date``. Cột dtype ``object`` là chỗ lọt: ``marts.build_daily``
+    tạo cột ``ngày`` bằng ``.dt.date``, pandas giữ nguyên dtype object nên vòng
+    chuẩn hóa datetime64 phía dưới không đụng tới, và job chết ở FACT_DAILY.
+    """
+    if v is None:
+        return None
+    if isinstance(v, (bool, np.bool_)):
+        return "TRUE" if v else "FALSE"
+    if isinstance(v, (pd.Timestamp, dt.datetime, dt.date)):
+        return None if pd.isna(v) else v.strftime("%Y-%m-%d")  # bắt cả NaT
+    if isinstance(v, dt.time):
+        return v.strftime("%H:%M")
+    if isinstance(v, np.integer):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        return float(v) if math.isfinite(v) else None  # inf cũng không hợp lệ
+    if isinstance(v, (str, int)):
+        return v
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass  # list/array: pd.isna trả mảng, không so được -> để str() lo
+    return str(v)
+
+
 def _to_cells(df: pd.DataFrame) -> list[list]:
     """Chuyển DataFrame thành mảng ô Sheets nhận được.
 
@@ -175,16 +214,30 @@ def _to_cells(df: pd.DataFrame) -> list[list]:
     """
     out = df.copy()
     for col in out.columns:
-        if pd.api.types.is_datetime64_any_dtype(out[col]):
-            out[col] = out[col].dt.strftime("%Y-%m-%d")
-        elif out[col].dtype == bool:
-            out[col] = out[col].map({True: "TRUE", False: "FALSE"})
+        s = out[col]
+        if pd.api.types.is_datetime64_any_dtype(s):
+            out[col] = s.dt.strftime("%Y-%m-%d")
+        elif s.dtype == bool:
+            out[col] = s.map({True: "TRUE", False: "FALSE"})
+        elif pd.api.types.is_float_dtype(s):
+            out[col] = s.replace([np.inf, -np.inf], np.nan)
+        elif pd.api.types.is_integer_dtype(s):
+            pass  # astype(object) ở cuối tự đổi np.int64 -> int
+        else:
+            # object, period, category, Decimal... — ép từng ô cho chắc. Danh
+            # sách kiểu "lạ" chỉ dài thêm theo thời gian, chặn theo whitelist.
+            out[col] = s.map(_o_json_duoc)
     return out.where(pd.notna(out), "").astype(object).values.tolist()
 
 
 def write_all(tables: dict[str, pd.DataFrame]) -> None:
+    # Ép kiểu TOÀN BỘ bảng trước khi gọi API. Trước đây một kiểu dữ liệu lạ ở
+    # bảng thứ tư làm job chết giữa chừng: MASTER/DIM_KHACH/FUNNEL_MOI đã ghi
+    # mới, FACT_DAILY/HIEU_QUA_KENH còn số cũ, mà DQ_STATUS vẫn báo 🟢 ĐẠT.
+    # Dashboard sai lệch âm thầm — đúng cái kiểu hỏng đã làm mất T12/2025.
+    payloads = {name: _to_cells(df) for name, df in tables.items()}
     for name, df in tables.items():
-        write_table(name, df)
+        write_table(name, df, values=payloads[name])
         print(f"  ghi {name}: {len(df):,} dòng")
 
 

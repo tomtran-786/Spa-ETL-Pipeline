@@ -98,7 +98,13 @@ def main(nguon: Path, dich: Path) -> int:
     # BOM (utf-8-sig) để Excel nhận ra UTF-8. Thiếu nó thì Excel trên Mac đọc
     # bằng Mac Roman và 'NGÀY' hiện thành 'NG√ÄY' — dữ liệu vẫn đúng, chỉ hiển
     # thị sai, nhưng copy từ màn hình đó sang Sheets là hỏng thật.
-    moi.to_csv(dich, index=False, encoding="utf-8-sig")
+    # CSV không có kiểu ngày, chỉ có chữ — nên ghi ISO (yyyy-mm-dd). Đây là
+    # dạng duy nhất không lật được ngày/tháng dù locale nào đọc. Xem _ghi_xlsx.
+    csv_out = moi.copy()
+    for cot in COT_NGAY:
+        csv_out[cot] = [d.strftime("%Y-%m-%d") if pd.notna(d := parse_date_vn(v)) else v
+                        for v in csv_out[cot]]
+    csv_out.to_csv(dich, index=False, encoding="utf-8-sig")
 
     # Bản .xlsx không có khái niệm bảng mã nên không bao giờ lỗi font. Đây là
     # bản nên dùng để dán vào Sheets.
@@ -115,19 +121,44 @@ def main(nguon: Path, dich: Path) -> int:
     print("  > Bỏ tick 'Convert text to numbers, dates and formulas'")
     print("\nHoặc mở .xlsx rồi copy từ hàng 2 (bỏ tiêu đề), dán vào ô A2.")
     print("Đừng dán đè hàng tiêu đề — nó đang khóa và pipeline dựa vào đó kiểm schema.")
+    print("\nSau khi import, kiểm nhanh: cột NGÀY phải trải đều T1-T3/2026.")
+    print("Thấy dữ liệu rơi vào tháng 4-12 là ngày đã bị lật ngày/tháng — import lại.")
     return 0
 
 
+COT_NGAY = ("NGÀY", "NGÀY HẸN")
+COT_TEXT = ("SỐ ĐT", "GIỜ HẸN")
+
+
 def _ghi_xlsx(df: pd.DataFrame, dich: Path) -> None:
-    """Ghi .xlsx với cột SĐT ở dạng text, giữ số 0 đầu."""
+    """Ghi .xlsx: SĐT dạng text (giữ số 0 đầu), NGÀY dạng NGÀY THẬT.
+
+    Ngày PHẢI là ô ngày thật, không phải chuỗi. Bản cũ ghi '10/01/2026' dạng
+    text; khi import vào Sheets với locale Mỹ, chuỗi đó được đọc thành mm/dd —
+    10 tháng 1 biến thành 1 tháng 10. Ngày > 12 thì không lật được nên nằm im,
+    còn ngày <= 12 thì lật: 1.076/2.419 dòng NGÀY và 112/325 dòng NGÀY HẸN sai
+    mà nhìn vẫn ra ngày hợp lệ. Ô ngày thật mang sẵn số serial, không qua bước
+    đọc chuỗi, nên đúng dù người import có tick 'Convert text to numbers,
+    dates and formulas' hay không.
+
+    Giá trị không parse được thì giữ nguyên chữ — không đoán, để người sửa tay.
+    """
+    xl = df.copy()
+    for cot in COT_NGAY:
+        xl[cot] = [d if pd.notna(d := parse_date_vn(v)) else v for v in xl[cot]]
+
     with pd.ExcelWriter(dich, engine="openpyxl") as w:
-        df.to_excel(w, index=False, sheet_name="LEAD")
+        xl.to_excel(w, index=False, sheet_name="LEAD")
         ws = w.sheets["LEAD"]
-        cot_text = [i for i, c in enumerate(df.columns, start=1)
-                    if c in ("SỐ ĐT", "NGÀY", "NGÀY HẸN", "GIỜ HẸN")]
-        for i in cot_text:
-            for hang in range(1, len(df) + 2):
-                ws.cell(row=hang, column=i).number_format = "@"
+        for i, c in enumerate(xl.columns, start=1):
+            if c not in COT_TEXT and c not in COT_NGAY:
+                continue
+            dinh_dang = "dd/MM/yyyy" if c in COT_NGAY else "@"
+            for hang in range(2, len(xl) + 2):
+                o = ws.cell(row=hang, column=i)
+                # Ô còn là chữ (ngày không parse được) thì để text, gán định
+                # dạng ngày lên chuỗi chỉ làm Excel hiện ###.
+                o.number_format = "@" if isinstance(o.value, str) else dinh_dang
 
 
 def _gop_ghi_chu(cu: pd.DataFrame) -> pd.Series:

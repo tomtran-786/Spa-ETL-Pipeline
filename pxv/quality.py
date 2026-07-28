@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from . import config, mappings, transform
-from .clean import PHONE_INVALID, out_of_window_mask
+from .clean import PHONE_INVALID, out_of_window_mask, parse_date_vn
+
+# Tỷ lệ dòng "hẹn sớm hơn lead" đủ để coi là hỏng hệ thống chứ không phải sales
+# gõ nhầm lẻ tẻ. Đo trên dữ liệu thật: bản đúng 0/325, bản bị lật ngày/tháng
+# 95/325 (29%). Ngưỡng 5% nằm giữa, cách xa cả hai đầu.
+TY_LE_HEN_TRUOC_LEAD_DUNG = 0.05
 
 FAIL = "🔴 DỪNG"
 WARN = "🟠 CẢNH BÁO"
@@ -224,10 +229,54 @@ def _check_dates(df_lead: pd.DataFrame, rep: QualityReport) -> None:
             f"ngoài [{config.DATE_VALID_LO:%Y-%m-%d}, {config.DATE_VALID_HI:%Y-%m-%d}]")
     rep.add("Ngày không đọc được", WARN if unparsed.any() else OK, int(unparsed.sum()))
 
+    nguoc = _check_hen_truoc_lead(df_lead, rep)
+
     flagged = df_lead[bad | unparsed | before]
+    phan = []
     if not flagged.empty:
-        rep.cần_sửa = flagged[["NGÀY", "TÊN KHÁCH HÀNG", "SỐ ĐT"]].assign(
-            lý_do="ngày nghi sai")
+        phan.append(flagged[["NGÀY", "TÊN KHÁCH HÀNG", "SỐ ĐT"]]
+                    .assign(lý_do="ngày nghi sai"))
+    if nguoc.any():
+        phan.append(df_lead.loc[nguoc, ["NGÀY", "TÊN KHÁCH HÀNG", "SỐ ĐT"]]
+                    .assign(lý_do="ngày hẹn sớm hơn ngày lead"))
+    if phan:
+        rep.cần_sửa = pd.concat(phan, ignore_index=True)
+
+
+def _check_hen_truoc_lead(df_lead: pd.DataFrame, rep: QualityReport) -> pd.Series:
+    """Hẹn không thể diễn ra TRƯỚC lúc khách nhắn tin.
+
+    Đây là lưới bắt lỗi lật ngày/tháng khi đưa dữ liệu vào Sheets: locale Mỹ
+    đọc '10/01/2026' thành 1 tháng 10. Ngày > 12 không lật được nên vẫn đúng,
+    ngày <= 12 thì lật — tất cả đều còn là ngày hợp lệ, nhìn mắt thường không
+    ra, và mọi phép kiểm khoảng ngày đều xanh. Nhưng lật kiểu đó đẩy một mớ
+    lịch hẹn về trước ngày lead, và điều đó thì không bao giờ đúng.
+
+    Parse ngày hẹn KHÔNG truyền ``sau_ngay``: suy năm theo ngày lead sẽ tự đẩy
+    hẹn ra sau lead, tức là xóa mất đúng cái dấu hiệu cần tìm. Dữ liệu cũ ghi
+    thiếu năm vì thế trả NaT và bị loại khỏi phép kiểm này — chấp nhận được,
+    dữ liệu mới luôn có năm đầy đủ.
+    """
+    if "NGÀY HẸN" not in df_lead.columns:
+        return pd.Series(False, index=df_lead.index)
+
+    hen = df_lead["NGÀY HẸN"].apply(parse_date_vn)
+    co_ca_hai = hen.notna() & df_lead["Ngày Lead"].notna()
+    nguoc = co_ca_hai & (hen < df_lead["Ngày Lead"])
+    n, tong = int(nguoc.sum()), int(co_ca_hai.sum())
+
+    ty_le = n / tong if tong else 0.0
+    if ty_le >= TY_LE_HEN_TRUOC_LEAD_DUNG:
+        trang_thai, ghi_chu = FAIL, (
+            f"{ty_le:.0%} số dòng có hẹn — quá nhiều để là gõ nhầm. Nghi ngày bị "
+            "lật ngày/tháng lúc import vào Sheets; xem lại scripts/migrate_lead_csv.py")
+    elif n:
+        trang_thai, ghi_chu = WARN, "vài dòng gõ nhầm — xem bảng CẦN_SỬA"
+    else:
+        trang_thai, ghi_chu = OK, ""
+
+    rep.add("Hẹn sớm hơn lead", trang_thai, f"{n}/{tong}", ghi_chu)
+    return nguoc
 
 
 def _check_phones(df_lead: pd.DataFrame, rep: QualityReport) -> None:

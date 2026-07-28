@@ -28,7 +28,7 @@ const PANCAKE_COLS = {
  */
 function khamPhaPancake() {
   _guardConfig();
-  const folder = DriveApp.getFolderById(CONFIG.PANCAKE_FOLDER_ID);
+  const folder = DriveApp.getFolderById(_id('PANCAKE_FOLDER_ID'));
   const files = folder.getFiles();
   if (!files.hasNext()) {
     Logger.log('Chưa có file nào trong Pancake_Drop. Export từ Pancake rồi thả vào đó.');
@@ -61,9 +61,9 @@ function napPancake() {
       'file có cột gì, rồi điền tên cột vào đầu file IngestPancake.gs.');
   }
 
-  const folder = DriveApp.getFolderById(CONFIG.PANCAKE_FOLDER_ID);
+  const folder = DriveApp.getFolderById(_id('PANCAKE_FOLDER_ID'));
   const files = folder.getFiles();
-  const kho = SpreadsheetApp.openById(CONFIG.KHO_ID);
+  const kho = SpreadsheetApp.openById(_id('KHO_ID'));
   let tongThem = 0, soFile = 0;
 
   while (files.hasNext()) {

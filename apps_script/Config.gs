@@ -71,11 +71,21 @@ function _alertEmails() {
     .filter(String);
 }
 
+/**
+ * Lấy ID: ưu tiên Config.gs, chưa điền thì lấy từ Script Properties do
+ * dungHeThong() ghi vào. Nhờ vậy chạy được ngay sau khi dựng, không phải
+ * chép tay 4 ID trước. Vẫn nên điền Config.gs để người sau đọc code là biết.
+ */
+function _id(ten) {
+  const v = CONFIG[ten];
+  if (v && v.indexOf('DÁN_ID') !== 0) return v;
+  const p = PropertiesService.getScriptProperties().getProperty(ten);
+  if (p) return p;
+  throw new Error('Chưa có ' + ten + '. Chạy dungHeThong() trong Bootstrap.gs, ' +
+    'hoặc điền tay vào Config.gs.');
+}
+
 function _guardConfig() {
-  const chuaDien = Object.keys(CONFIG).filter(function (k) {
-    return typeof CONFIG[k] === 'string' && CONFIG[k].indexOf('DÁN_ID') === 0;
-  });
-  if (chuaDien.length) {
-    throw new Error('Chưa điền ID trong Config.gs: ' + chuaDien.join(', '));
-  }
+  ['KHO_ID', 'DASHBOARD_ID', 'KIOTVIET_FOLDER_ID', 'PANCAKE_FOLDER_ID']
+    .forEach(function (k) { _id(k); });
 }

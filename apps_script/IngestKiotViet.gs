@@ -14,7 +14,7 @@
  */
 function napKiotViet() {
   _guardConfig();
-  const folder = DriveApp.getFolderById(CONFIG.KIOTVIET_FOLDER_ID);
+  const folder = DriveApp.getFolderById(_id('KIOTVIET_FOLDER_ID'));
   const files = folder.getFiles();
   let daXuLy = 0;
 
@@ -39,7 +39,7 @@ function _xuLyMotFile(file, folder) {
   const hash = Utilities.base64Encode(
     Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, noiDung));
 
-  const kho = SpreadsheetApp.openById(CONFIG.KHO_ID);
+  const kho = SpreadsheetApp.openById(_id('KHO_ID'));
   const log = _sheetOrCreate(kho, CONFIG.SHEET_KV_LOG,
     ['tháng', 'số hóa đơn', 'doanh thu', 'ngày nạp gần nhất', 'hash file']);
 

@@ -14,6 +14,7 @@ function onOpen() {
     .addItem('Nạp file Pancake vừa thả', 'napPancake')
     .addSeparator()
     .addItem('Kiểm tra cấu hình', 'kiemTraCauHinh')
+    .addItem('⚙️ Dựng lại hệ thống (chạy 1 lần)', 'dungHeThong')
     .addToUi();
 }
 
@@ -60,7 +61,7 @@ function chayLaiPipeline() {
 function xemTrangThai() {
   const ui = SpreadsheetApp.getUi();
   try {
-    const sheet = SpreadsheetApp.openById(CONFIG.DASHBOARD_ID)
+    const sheet = SpreadsheetApp.openById(_id('DASHBOARD_ID'))
       .getSheetByName(CONFIG.SHEET_DQ);
     if (!sheet || sheet.getLastRow() < 2) {
       ui.alert('Chưa có dữ liệu', 'Pipeline chưa chạy lần nào.', ui.ButtonSet.OK);
@@ -89,7 +90,7 @@ function kiemTraCauHinh() {
     return;
   }
 
-  [['Kho PXV_KHO', CONFIG.KHO_ID], ['Dashboard', CONFIG.DASHBOARD_ID]]
+  [['Kho PXV_KHO', _id('KHO_ID')], ['Dashboard', _id('DASHBOARD_ID')]]
     .forEach(function (p) {
       try {
         SpreadsheetApp.openById(p[1]).getName();
@@ -99,7 +100,7 @@ function kiemTraCauHinh() {
       }
     });
 
-  [['KiotViet_Drop', CONFIG.KIOTVIET_FOLDER_ID], ['Pancake_Drop', CONFIG.PANCAKE_FOLDER_ID]]
+  [['KiotViet_Drop', _id('KIOTVIET_FOLDER_ID')], ['Pancake_Drop', _id('PANCAKE_FOLDER_ID')]]
     .forEach(function (p) {
       try {
         DriveApp.getFolderById(p[1]).getName();

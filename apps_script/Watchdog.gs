@@ -59,7 +59,7 @@ function canhChung() {
 }
 
 function _docMocChayLuc() {
-  const sheet = SpreadsheetApp.openById(CONFIG.DASHBOARD_ID)
+  const sheet = SpreadsheetApp.openById(_id('DASHBOARD_ID'))
     .getSheetByName(CONFIG.SHEET_DQ);
   if (!sheet) throw new Error('Không có sheet ' + CONFIG.SHEET_DQ);
   if (sheet.getLastRow() < 2) throw new Error('Sheet ' + CONFIG.SHEET_DQ + ' rỗng');
@@ -76,7 +76,7 @@ function _docMocChayLuc() {
 }
 
 function _cacPhepKiemDo() {
-  const sheet = SpreadsheetApp.openById(CONFIG.DASHBOARD_ID)
+  const sheet = SpreadsheetApp.openById(_id('DASHBOARD_ID'))
     .getSheetByName(CONFIG.SHEET_DQ);
   if (!sheet || sheet.getLastRow() < 2) return [];
   return sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
@@ -90,7 +90,7 @@ function _cacPhepKiemDo() {
  */
 function nhacExportKiotViet() {
   _guardConfig();
-  const log = SpreadsheetApp.openById(CONFIG.KHO_ID).getSheetByName(CONFIG.SHEET_KV_LOG);
+  const log = SpreadsheetApp.openById(_id('KHO_ID')).getSheetByName(CONFIG.SHEET_KV_LOG);
   let lanCuoi = 'chưa từng nạp';
   if (log && log.getLastRow() > 1) {
     const ngay = log.getRange(2, 4, log.getLastRow() - 1, 1).getValues()

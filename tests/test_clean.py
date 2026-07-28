@@ -14,7 +14,7 @@ from pxv.clean import (PHONE_EMPTY, PHONE_INTL, PHONE_INVALID, PHONE_VN,
     ("390000001", "0390000001"),          # sales quên số 0 đầu
     ("84390000001", "0390000001"),        # dạng +84
     ("0084390000001", "0390000001"),      # dạng quay quốc tế 00
-    ("+84 389 557 477", "0390000001"),    # có dấu cách và dấu cộng
+    ("+84 390 000 001", "0390000001"),    # có dấu cách và dấu cộng
     (390000001.0, "0390000001"),          # Excel đọc thành float
     ("0283822012", "0283822012"),         # cố định 10 số
     ("02838220123", "02838220123"),       # cố định 11 số
@@ -29,7 +29,7 @@ from pxv.clean import (PHONE_EMPTY, PHONE_INTL, PHONE_INVALID, PHONE_VN,
     # --- rác: phải thành None ---
     ("0", None),                          # KiotViet ghi "0" khi không có SĐT
     ("00", None),
-    ("37840188", None),                   # 8 chữ số, quá ngắn
+    ("12345678", None),                   # 8 chữ số, quá ngắn
     ("data 2018", None),                  # sales gõ ghi chú vào ô SĐT
     ("Khách đã nt vào zalo", None),
     ("", None),
@@ -43,7 +43,7 @@ def test_clean_phone(raw, expected):
 def test_phone_zero_khong_duoc_thanh_khoa_join():
     """Bug cũ: clean_phone('0') trả '0', biến mọi khách không có SĐT thành MỘT người.
 
-    Bốn khách khác nhau (Khách A, Khách B, Khách C, Khách D) đều có
+    Bốn khách khác nhau (bốn khách khác nhau) đều có
     SĐT ghi '0' trong KiotViet nên bị gộp làm một, làm hỏng CLV và số khách.
     """
     assert clean_phone("0") is None
@@ -53,7 +53,7 @@ def test_phone_zero_khong_duoc_thanh_khoa_join():
 @pytest.mark.parametrize("raw,kind", [
     ("0390000001", PHONE_VN),
     ("16505550100", PHONE_INTL),
-    ("37840188", PHONE_INVALID),
+    ("12345678", PHONE_INVALID),
     ("data 2018", PHONE_INVALID),
     ("", PHONE_EMPTY),
     (None, PHONE_EMPTY),

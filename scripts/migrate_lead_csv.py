@@ -84,14 +84,50 @@ def main(nguon: Path, dich: Path) -> int:
     moi["GHI CHÚ"] = _gop_ghi_chu(cu)
     moi["NGÀY HẸN"] = _sua_ngay_hen(cu)
 
+    # Bỏ dòng trống hoàn toàn (rác từ file gốc). KHÔNG bỏ dòng thiếu ngày mà
+    # vẫn có tên/SĐT — đó là khách thật, xóa đi là mất dữ liệu.
+    trong = moi.isna().all(axis=1)
+    if trong.any():
+        print(f"Bỏ {int(trong.sum())} dòng trống hoàn toàn\n")
+        moi = moi[~trong].reset_index(drop=True)
+        cu = cu[~trong.values].reset_index(drop=True)
+
     _bao_cao(cu, moi)
     dich.parent.mkdir(parents=True, exist_ok=True)
-    moi.to_csv(dich, index=False)
-    print(f"\n✅ Đã ghi: {dich}")
-    print(f"   {len(moi):,} dòng × {len(moi.columns)} cột")
-    print("\nDán vào sheet LEAD: mở file, copy TỪ HÀNG 2 (bỏ dòng tiêu đề),")
-    print("dán vào ô A2 của tab LEAD. Đừng dán đè hàng tiêu đề.")
+
+    # BOM (utf-8-sig) để Excel nhận ra UTF-8. Thiếu nó thì Excel trên Mac đọc
+    # bằng Mac Roman và 'NGÀY' hiện thành 'NG√ÄY' — dữ liệu vẫn đúng, chỉ hiển
+    # thị sai, nhưng copy từ màn hình đó sang Sheets là hỏng thật.
+    moi.to_csv(dich, index=False, encoding="utf-8-sig")
+
+    # Bản .xlsx không có khái niệm bảng mã nên không bao giờ lỗi font. Đây là
+    # bản nên dùng để dán vào Sheets.
+    dich_xlsx = dich.with_suffix(".xlsx")
+    _ghi_xlsx(moi, dich_xlsx)
+
+    print(f"\n✅ Đã ghi {len(moi):,} dòng × {len(moi.columns)} cột:")
+    print(f"   {dich_xlsx}   <- DÙNG BẢN NÀY")
+    print(f"   {dich}   (CSV kèm BOM, phòng khi cần)")
+    print("\n--- Đưa vào sheet LEAD ---")
+    print("Cách an toàn nhất (không lo bảng mã, không lo mất số 0 đầu SĐT):")
+    print("  Mở PXV_NHẬP_LIỆU > File > Import > Upload > chọn file .xlsx")
+    print("  > Import location: 'Replace data at selected cell', chọn ô A2 của tab LEAD")
+    print("  > Bỏ tick 'Convert text to numbers, dates and formulas'")
+    print("\nHoặc mở .xlsx rồi copy từ hàng 2 (bỏ tiêu đề), dán vào ô A2.")
+    print("Đừng dán đè hàng tiêu đề — nó đang khóa và pipeline dựa vào đó kiểm schema.")
     return 0
+
+
+def _ghi_xlsx(df: pd.DataFrame, dich: Path) -> None:
+    """Ghi .xlsx với cột SĐT ở dạng text, giữ số 0 đầu."""
+    with pd.ExcelWriter(dich, engine="openpyxl") as w:
+        df.to_excel(w, index=False, sheet_name="LEAD")
+        ws = w.sheets["LEAD"]
+        cot_text = [i for i, c in enumerate(df.columns, start=1)
+                    if c in ("SỐ ĐT", "NGÀY", "NGÀY HẸN", "GIỜ HẸN")]
+        for i in cot_text:
+            for hang in range(1, len(df) + 2):
+                ws.cell(row=hang, column=i).number_format = "@"
 
 
 def _gop_ghi_chu(cu: pd.DataFrame) -> pd.Series:
@@ -168,8 +204,19 @@ def _bao_cao(cu: pd.DataFrame, moi: pd.DataFrame) -> None:
         print("   Nhiều khả năng gõ nhầm năm. Script KHÔNG tự sửa — xem lại rồi")
         print("   sửa trong sheet, vì đoán sai năm sẽ làm lệch cả báo cáo theo tháng.")
 
-    lead_moi = moi.rename(columns={})
-    con_thieu = [c for c in schema.LEAD_REQUIRED if c not in lead_moi.columns]
+    # Dòng có dữ liệu thật nhưng thiếu NGÀY: pipeline lọc theo ngày nên chúng
+    # sẽ nằm trong sheet mà không bao giờ vào báo cáo. Giữ lại (là khách thật)
+    # nhưng phải báo để người nhập điền ngày.
+    thieu_ngay = moi["NGÀY"].isna() & moi["TÊN KHÁCH HÀNG"].notna()
+    if thieu_ngay.any():
+        print(f"\n⚠️  {int(thieu_ngay.sum())} dòng có tên/SĐT nhưng THIẾU NGÀY:")
+        for _, r in moi[thieu_ngay].head(8).iterrows():
+            sdt = r["SỐ ĐT"] if pd.notna(r["SỐ ĐT"]) else "(không có SĐT)"
+            print(f"     {str(r['TÊN KHÁCH HÀNG'])[:34]:36} {sdt}")
+        print("   Vẫn giữ trong file (là khách thật), nhưng pipeline lọc theo ngày")
+        print("   nên chúng sẽ KHÔNG vào báo cáo. Điền NGÀY trong sheet để dùng được.")
+
+    con_thieu = [c for c in schema.LEAD_REQUIRED if c not in moi.columns]
     print(f"\n--- Khớp schema: {'✅ đủ cột bắt buộc' if not con_thieu else '❌ thiếu ' + str(con_thieu)}")
 
 

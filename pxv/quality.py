@@ -57,7 +57,8 @@ CHAY_LUC = "Chạy lúc"
 
 
 def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
-               master: pd.DataFrame) -> QualityReport:
+               master: pd.DataFrame,
+               costs: pd.DataFrame | None = None) -> QualityReport:
     rep = QualityReport()
     # Dòng đầu tiên là mốc thời gian: watchdog bên Apps Script đọc đúng dòng này
     # để biết pipeline có còn chạy không. Nếu GitHub Actions bị tắt thì GitHub
@@ -72,7 +73,37 @@ def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
     _check_funnel_dedupe(master, rep)
     _check_mece_exhaustive(master, rep)
     _check_source_catalog(df_lead, rep)
+    _check_ad_costs(costs, master, rep)
     return rep
+
+
+def _check_ad_costs(costs, master: pd.DataFrame, rep: QualityReport) -> None:
+    """Chi phí quảng cáo có đủ và có khớp tên kênh không.
+
+    Gõ sai tên kênh thì chi phí đó biến mất khỏi mọi phép tính mà không ai
+    biết — CPL/CAC/ROAS của kênh sẽ trống trong khi tiền vẫn chi thật.
+    """
+    from . import ad_costs as ad
+
+    if costs is None or costs.empty:
+        rep.add("Chi phí quảng cáo", WARN, "chưa nhập",
+                "chưa nhập thì không tính được CPL/CAC/ROAS — chỉ biết kênh nào "
+                "ra NHIỀU lead, không biết kênh nào ĐÁNG tiền")
+        return
+
+    known = set(master["Kênh Tiếp Cận"].dropna().unique())
+    unknown = ad.unknown_channels(costs, known)
+    rep.add("Kênh trong bảng chi phí", WARN if unknown else OK,
+            unknown or "khớp hết",
+            f"chi phí của các kênh này sẽ không được tính: {unknown}" if unknown else "")
+
+    # Tháng có lead nhưng chưa nhập chi phí -> ROAS tháng đó bị trống.
+    có_lead = set(master.loc[master["Ngày Lead"].notna(), "Ngày Lead"]
+                  .dt.strftime("%Y-%m").unique())
+    thiếu = sorted(có_lead - set(costs["tháng"].unique()))
+    rep.add("Tháng đã nhập chi phí", WARN if thiếu else OK,
+            f"{len(có_lead) - len(thiếu)}/{len(có_lead)}",
+            f"chưa nhập cho tháng: {thiếu}" if thiếu else "")
 
 
 def _check_dates(df_lead: pd.DataFrame, rep: QualityReport) -> None:

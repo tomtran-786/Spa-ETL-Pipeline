@@ -179,3 +179,13 @@ def write_all(tables: dict[str, pd.DataFrame]) -> None:
     for name, df in tables.items():
         write_table(name, df)
         print(f"  ghi {name}: {len(df):,} dòng")
+
+
+def load_ad_costs() -> pd.DataFrame:
+    """Chi phí quảng cáo từ tab CHI_PHÍ_QC. Tab chưa có thì trả bảng rỗng."""
+    from . import ad_costs
+    try:
+        df = _read_sheet(config.SHEET_ID_NHAP_LIEU, config.TAB_CHIPHI).dropna(how="all")
+    except Exception:
+        return ad_costs.EMPTY.copy()
+    return ad_costs.normalize(df)

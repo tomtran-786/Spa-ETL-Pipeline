@@ -29,14 +29,19 @@ def main(strict: bool = True) -> int:
     print(f"  lead {len(df_lead):,} dòng | hẹn {len(df_hen):,} SĐT | "
           f"hóa đơn {df_inv['Mã hóa đơn'].nunique():,}")
 
+    costs = io.load_ad_costs()
+    if not costs.empty:
+        print(f"  chi phí quảng cáo {len(costs):,} dòng")
+
     print("Dựng bảng...")
     master = transform.build_master(df_lead, df_hen, df_inv)
     dim_khach = marts.build_dim_khach(master, df_inv)
     funnel_moi = marts.build_funnel_moi(df_inv)
     daily = marts.build_daily(master)
+    hieu_qua = marts.build_hieu_qua_kenh(master, costs, dim_khach)
 
     print("Kiểm chất lượng...")
-    report = quality.run_checks(df_lead, df_inv, master)
+    report = quality.run_checks(df_lead, df_inv, master, costs)
     print(report.to_frame().to_string(index=False))
 
     tables = {
@@ -44,6 +49,7 @@ def main(strict: bool = True) -> int:
         "DIM_KHACH": dim_khach,
         "FUNNEL_MOI": funnel_moi,
         "FACT_DAILY": daily,
+        "HIEU_QUA_KENH": hieu_qua,
         "DQ_STATUS": report.to_frame(),
         "CẦN_SỬA": report.cần_sửa,
     }

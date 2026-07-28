@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from . import config, schema
+from . import ad_costs, config, schema
 from .clean import clean_money, clean_phone, parse_date_vn, phone_kind
 
 
@@ -69,3 +69,11 @@ def load_invoices(path=None) -> pd.DataFrame:
     is_first_line = ~df.duplicated("Mã hóa đơn", keep="first")
     df["Doanh Thu (VNĐ)"] = df["_tổng_hóa_đơn"].where(is_first_line, 0)
     return df.drop(columns=["_tổng_hóa_đơn"])
+
+
+def load_ad_costs(path=None) -> pd.DataFrame:
+    """Chi phí quảng cáo. Chưa có file thì trả bảng rỗng, không làm gãy pipeline."""
+    p = path or config.F_CHIPHI
+    if not p.exists():
+        return ad_costs.EMPTY.copy()
+    return ad_costs.normalize(pd.read_csv(p))

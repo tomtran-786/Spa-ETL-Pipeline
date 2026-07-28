@@ -30,6 +30,11 @@ SHEET_ID_DASHBOARD = os.environ.get("PXV_SHEET_DASHBOARD", "")
 TAB_LEAD = "LEAD"
 TAB_INVOICES = "INVOICES_RAW"
 TAB_PANCAKE = "PANCAKE_RAW"
+TAB_CHIPHI = "CHI_PHÍ_QC"
+
+# Chi phí quảng cáo — marketing nhập tay ~10 dòng/tháng.
+# Không có file này thì pipeline vẫn chạy, chỉ là không tính được CPL/CAC/ROAS.
+F_CHIPHI = BASE / "chi_phi_qc.csv"
 
 # --- Cửa sổ phân tích ---
 # Funnel chỉ tính trong khoảng cả 3 nguồn cùng phủ. Hóa đơn trước mốc này vẫn

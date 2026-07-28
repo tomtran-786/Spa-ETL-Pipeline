@@ -49,10 +49,15 @@ function dungHeThong() {
 
   Logger.log('Bắt đầu dựng hệ thống...\n');
 
+  // Tạo thư mục TRƯỚC để còn gom spreadsheet vào đó. SpreadsheetApp.create()
+  // mặc định thả file ở gốc Drive, để lâu sẽ lẫn với hàng trăm file khác.
+  const goc = _taoThuMuc('PXV');
+
   _dungSheetNhapLieu(ss);
+  _chuyenVaoThuMuc(ss.getId(), goc);
   ketQua.push(['PXV_NHẬP_LIỆU (file này)', ss.getId()]);
 
-  const kho = _taoSpreadsheet('PXV_KHO', function (s) {
+  const kho = _taoSpreadsheet('PXV_KHO', goc, function (s) {
     _taoTab(s, 'INVOICES_RAW', INVOICE_HEADERS);
     _taoTab(s, 'PANCAKE_RAW', ['SĐT', 'Tên khách', 'Page', 'Ngày', '_ngày nạp']);
     _taoTab(s, 'KIOTVIET_LOG',
@@ -63,7 +68,7 @@ function dungHeThong() {
   });
   ketQua.push(['PXV_KHO', kho.getId()]);
 
-  const dash = _taoSpreadsheet('PXV_DASHBOARD_DATA', function (s) {
+  const dash = _taoSpreadsheet('PXV_DASHBOARD_DATA', goc, function (s) {
     // Tạo sẵn DQ_STATUS để watchdog không báo lỗi trước lần chạy pipeline đầu.
     _taoTab(s, 'DQ_STATUS', ['tên', 'trạng_thái', 'giá_trị', 'ghi_chú']);
     s.getSheetByName('DQ_STATUS').appendRow(
@@ -71,7 +76,6 @@ function dungHeThong() {
   });
   ketQua.push(['PXV_DASHBOARD_DATA', dash.getId()]);
 
-  const goc = _taoThuMuc('PXV');
   const kvDrop = _taoThuMucCon(goc, 'KiotViet_Drop');
   const pcDrop = _taoThuMucCon(goc, 'Pancake_Drop');
   ketQua.push(['Thư mục KiotViet_Drop', kvDrop.getId()]);
@@ -277,7 +281,7 @@ function _dungTabHuongDan(ss) {
 
 // --- Tiện ích ------------------------------------------------------------
 
-function _taoSpreadsheet(ten, dungNoiDung) {
+function _taoSpreadsheet(ten, thuMuc, dungNoiDung) {
   const cu = DriveApp.getFilesByName(ten);
   if (cu.hasNext()) {
     const s = SpreadsheetApp.open(cu.next());
@@ -285,6 +289,7 @@ function _taoSpreadsheet(ten, dungNoiDung) {
     return s;
   }
   const s = SpreadsheetApp.create(ten);
+  _chuyenVaoThuMuc(s.getId(), thuMuc);
   dungNoiDung(s);
   const mac_dinh = s.getSheetByName('Sheet1') || s.getSheetByName('Trang tính1');
   if (mac_dinh && s.getSheets().length > 1) s.deleteSheet(mac_dinh);
@@ -301,6 +306,17 @@ function _taoTab(ss, ten, header) {
     s.getRange(1, 1, 1, header.length).setFontWeight('bold');
   }
   return s;
+}
+
+/** Đưa file về đúng thư mục PXV. Không có bước này file nằm ở gốc Drive. */
+function _chuyenVaoThuMuc(fileId, thuMuc) {
+  try {
+    const f = DriveApp.getFileById(fileId);
+    thuMuc.addFile(f);
+    DriveApp.getRootFolder().removeFile(f);
+  } catch (e) {
+    Logger.log('  ⚠️ Không chuyển được file vào thư mục PXV: ' + e.message);
+  }
 }
 
 function _taoThuMuc(ten) {

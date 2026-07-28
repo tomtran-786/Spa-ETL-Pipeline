@@ -2,7 +2,8 @@
 
 Gộp dữ liệu tư vấn của sales, lịch hẹn và hóa đơn KiotViet thành các bảng phục vụ dashboard quản trị: doanh thu, phễu chuyển đổi, hiệu quả kênh quảng cáo, CLV và funnel dịch vụ mồi.
 
-> **Vận hành hằng ngày** (export file, xử lý cảnh báo, đọc số): xem [RUNBOOK.md](RUNBOOK.md).
+> **Cài đặt lần đầu**: [apps_script/HUONG_DAN_CAI_DAT.md](apps_script/HUONG_DAN_CAI_DAT.md)
+> **Vận hành hằng ngày** (export file, xử lý cảnh báo, đọc số): [RUNBOOK.md](RUNBOOK.md)
 > Tài liệu này dành cho người sửa code.
 
 ---
@@ -88,7 +89,8 @@ pxv/
   quality.py    15 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
   run_daily.py  Điểm chạy duy nhất
 
-apps_script/    7 file .gs dán vào Google Sheets — hướng dẫn cài ở Setup.gs
+apps_script/    8 file .gs dán vào Google Sheets
+                → HUONG_DAN_CAI_DAT.md: hướng dẫn cài từng bước
 tests/          82 test, dùng dữ liệu bịa
 scripts/        purge_pii_history.sh — dọn dữ liệu khỏi lịch sử git
 spa.ipynb       Sổ tay khám phá ad-hoc, import từ pxv

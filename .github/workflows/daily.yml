@@ -74,7 +74,7 @@ jobs:
           fi
 
           for ten in PXV_SHEET_NHAP_LIEU PXV_SHEET_KHO PXV_SHEET_DASHBOARD; do
-            gt=$(eval echo \$$ten)
+            gt="${!ten}"   # tra biến theo tên, an toàn hơn eval
             if [ -z "$gt" ]; then
               bao "Thiếu $ten. Đặt ở tab VARIABLES (hoặc Secrets cũng được).
           Giá trị là ID spreadsheet, lấy từ URL: docs.google.com/spreadsheets/d/<ID>/edit"

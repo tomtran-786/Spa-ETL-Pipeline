@@ -96,6 +96,13 @@ def build_master(df_lead: pd.DataFrame, df_hen: pd.DataFrame, df_inv: pd.DataFra
     m = _enrich(m)
     m = _add_funnel_flags(m)
 
+    # Ép kiểu ngày trước khi trừ. Khi sheet LEAD rỗng, cột 'Ngày Lead' về từ
+    # merge mang dtype object/float chứ không phải datetime64, và
+    # `datetime - float` ném TypeError khó hiểu thay vì cho biết sheet trống.
+    for cot in ("Ngày HĐ", "Ngày Lead", "NGÀY HẸN"):
+        if cot in m.columns:
+            m[cot] = pd.to_datetime(m[cot], errors="coerce")
+
     m["Thời gian ra đơn (Ngày)"] = (
         (m["Ngày HĐ"] - m["Ngày Lead"]).dt.total_seconds() / 86400
     ).round(1)

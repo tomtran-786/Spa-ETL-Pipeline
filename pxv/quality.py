@@ -72,6 +72,7 @@ def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
     # không báo gì cả — chỉ watchdog phát hiện được.
     rep.add(CHAY_LUC, OK, pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
             "mốc để watchdog kiểm pipeline còn sống")
+    _check_nguon_co_du_lieu(df_lead, df_inv, rep)
     _check_dates(df_lead, rep)
     _check_phones(df_lead, rep)
     _check_invoice_months(df_inv, rep)
@@ -179,6 +180,24 @@ def _check_ad_costs(costs, master: pd.DataFrame, rep: QualityReport) -> None:
     rep.add("Tháng đã nhập chi phí", WARN if thiếu else OK,
             f"{len(có_lead) - len(thiếu)}/{len(có_lead)}",
             f"chưa nhập cho tháng: {thiếu}" if thiếu else "")
+
+
+def _check_nguon_co_du_lieu(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
+                            rep: QualityReport) -> None:
+    """Nguồn rỗng thì báo NGAY, đừng để lỗi lộ ra tận lúc tính toán.
+
+    Sheet LEAD rỗng từng làm pipeline ném TypeError giữa chừng vì cột ngày về
+    dtype object thay vì datetime — thông báo đó không nói được gì cho người
+    vận hành.
+    """
+    rep.add("Sheet LEAD có dữ liệu", FAIL if df_lead.empty else OK,
+            f"{len(df_lead):,} dòng",
+            "tab LEAD chỉ có hàng tiêu đề — sales chưa nhập, hoặc pipeline đang "
+            "trỏ nhầm spreadsheet/tên tab" if df_lead.empty else "")
+    rep.add("Kho hóa đơn có dữ liệu", FAIL if df_inv.empty else OK,
+            f"{len(df_inv):,} dòng",
+            "tab INVOICES_RAW rỗng — chưa thả file KiotViet nào vào Drive"
+            if df_inv.empty else "")
 
 
 def _check_dates(df_lead: pd.DataFrame, rep: QualityReport) -> None:

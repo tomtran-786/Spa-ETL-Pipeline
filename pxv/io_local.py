@@ -92,3 +92,19 @@ def load_previous_dq() -> pd.DataFrame | None:
         return pd.read_excel(out, sheet_name="DQ_STATUS")
     except Exception:
         return None
+
+
+def load_pancake(path=None) -> pd.DataFrame:
+    """SĐT Pancake quét từ hội thoại. Chưa có file thì trả bảng rỗng.
+
+    Cùng schema với tab PANCAKE_RAW do IngestPancake.gs sinh ra:
+    SĐT | Tên khách | Page | Ngày | _ngày nạp
+    """
+    p = path or config.F_PANCAKE
+    if not p.exists():
+        return pd.DataFrame(columns=["Phone_Clean", "Tên khách"])
+    df = pd.read_csv(p, dtype=str)
+    if "SĐT" not in df.columns:
+        return pd.DataFrame(columns=["Phone_Clean", "Tên khách"])
+    df["Phone_Clean"] = df["SĐT"].apply(clean_phone)
+    return df.dropna(subset=["Phone_Clean"])

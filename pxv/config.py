@@ -33,6 +33,14 @@ TAB_PANCAKE = "PANCAKE_RAW"
 TAB_CHIPHI = "CHI_PHÍ_QC"
 TAB_DQ = "DQ_STATUS"
 
+# --- Vá SĐT từ Pancake ---
+# MẶC ĐỊNH TẮT. Khóa join duy nhất là tên khách, mà tên Facebook rất lộn xộn
+# nên ghép sai sẽ gán SĐT người này cho người khác — hỏng phễu và CLV mà kết
+# quả trông vẫn hợp lý. Chỉ bật khi có dữ liệu thật và đo được tỷ lệ vá đủ lớn
+# (xem thống kê pipeline in ra mỗi lần chạy).
+PANCAKE_ENABLED = os.environ.get("PXV_PANCAKE", "0") == "1"
+F_PANCAKE = BASE / "pancake_raw.csv"
+
 # Chi phí quảng cáo — marketing nhập tay ~10 dòng/tháng.
 # Không có file này thì pipeline vẫn chạy, chỉ là không tính được CPL/CAC/ROAS.
 F_CHIPHI = BASE / "chi_phi_qc.csv"

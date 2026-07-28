@@ -8,7 +8,7 @@ import sys
 
 import pandas as pd
 
-from . import config, marts, quality, transform
+from . import config, marts, pancake, quality, transform
 
 
 def _io():
@@ -28,6 +28,13 @@ def main(strict: bool = True) -> int:
     df_inv = io.load_invoices()
     print(f"  lead {len(df_lead):,} dòng | hẹn {len(df_hen):,} SĐT | "
           f"hóa đơn {df_inv['Mã hóa đơn'].nunique():,}")
+
+    # Vá SĐT thiếu bằng dữ liệu Pancake. Tắt mặc định — xem pxv/pancake.py.
+    if config.PANCAKE_ENABLED:
+        df_lead, tk = pancake.fill_missing_phones(df_lead, io.load_pancake())
+        print("  " + pancake.tom_tat(tk))
+        # Hẹn phải dựng lại: vá SĐT xong thì có thêm lead join được.
+        df_hen = io.load_appointments(df_lead)
 
     costs = io.load_ad_costs()
     # Đọc mốc lần trước TRƯỚC khi ghi đè, để phát hiện dữ liệu bị xóa ở nguồn.

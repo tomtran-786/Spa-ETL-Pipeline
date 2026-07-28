@@ -1,0 +1,6 @@
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1
+pytest>=7.4
+gspread>=6.0
+google-auth>=2.28

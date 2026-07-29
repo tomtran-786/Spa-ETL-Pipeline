@@ -81,3 +81,22 @@ def test_funnel_moi_bat_duoc_upsell(df_inv):
     assert bool(row["upsell_30d"])
     assert row["doanh_thu_upsell"] == 8_000_000
     assert row["số_ngày_đến_upsell"] == 12
+
+
+def test_funnel_daily_dung_dang_long_va_bao_toan_cac_buoc(master):
+    """Mart cho Looker Funnel phải có nhãn bước + metric, không được lệch số."""
+    funnel = marts.build_funnel_daily(marts.build_daily(master))
+
+    assert list(funnel.columns) == marts.FUNNEL_DAILY_COLUMNS
+    assert set(funnel["Bước phễu"]) == {s[0] for s in marts.FUNNEL_STAGES}
+
+    actual = funnel.groupby("Bước phễu")["Số khách"].sum().to_dict()
+    expected = {
+        label: int(master[flag].sum())
+        for label, _, _, flag in marts.FUNNEL_STAGES
+    }
+    assert actual == expected
+
+    orders = (funnel[["Bước phễu", "Thứ tự bước"]]
+              .drop_duplicates().sort_values("Thứ tự bước"))
+    assert orders["Bước phễu"].tolist() == [s[0] for s in marts.FUNNEL_STAGES]

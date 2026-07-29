@@ -147,6 +147,45 @@ def build_daily(master: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["ngày", "Kênh Tiếp Cận"]).reset_index(drop=True)
 
 
+FUNNEL_STAGES = (
+    ("Có Inbox", 1, "lead", "[F] 1_Có Inbox"),
+    ("Có SĐT", 2, "có_sđt", "[F] 2_Có SĐT"),
+    ("Có Đặt Lịch", 3, "có_hẹn", "[F] 3_Có Đặt Lịch"),
+    ("Có Ra Đơn", 4, "có_đơn", "[F] 4_Có Ra Đơn"),
+)
+FUNNEL_DAILY_COLUMNS = ["ngày", "Kênh Tiếp Cận", "Bước phễu",
+                        "Thứ tự bước", "Số khách"]
+
+
+def build_funnel_daily(daily: pd.DataFrame) -> pd.DataFrame:
+    """Chuyển FACT_DAILY từ dạng rộng sang dài cho native Funnel chart.
+
+    ``FACT_DAILY`` giữ bốn bước phễu ở bốn cột để tiện làm biểu đồ thời gian.
+    Looker Studio Funnel lại cần *một* dimension là tên bước và *một* metric là
+    số khách. Mart này chỉ đổi hình dữ liệu, không tính lại hay thay đổi bất kỳ
+    con số funnel nào; nhờ giữ ``ngày`` và ``Kênh Tiếp Cận`` nó vẫn lọc được
+    theo khoảng thời gian và kênh mà không cần Blend trong Looker.
+    """
+    missing = [c for c in ("ngày", "Kênh Tiếp Cận", *[s[2] for s in FUNNEL_STAGES])
+               if c not in daily.columns]
+    if missing:
+        raise ValueError(f"FACT_DAILY thiếu cột để dựng funnel: {missing}")
+
+    parts = []
+    for label, order, source, _ in FUNNEL_STAGES:
+        part = daily[["ngày", "Kênh Tiếp Cận", source]].rename(
+            columns={source: "Số khách"})
+        part["Bước phễu"] = label
+        part["Thứ tự bước"] = order
+        parts.append(part)
+
+    out = pd.concat(parts, ignore_index=True)
+    out["Số khách"] = pd.to_numeric(out["Số khách"], errors="coerce").fillna(0).astype(int)
+    return out[FUNNEL_DAILY_COLUMNS].sort_values(
+        ["ngày", "Kênh Tiếp Cận", "Thứ tự bước"]
+    ).reset_index(drop=True)
+
+
 def build_hieu_qua_kenh(master: pd.DataFrame, costs: pd.DataFrame,
                         dim_khach: pd.DataFrame | None = None) -> pd.DataFrame:
     """Một dòng = một cặp (tháng × kênh). Trả lời "kênh nào ĐÁNG tiền".

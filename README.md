@@ -62,7 +62,7 @@ Google Sheets          Drive/KiotViet_Drop      Drive/Pancake_Drop
                   GitHub Actions — cron 06:15 hằng ngày
                   pytest → pxv.run_daily → kiểm chất lượng
                                 ↓
-                  PXV_DASHBOARD_DATA (6 bảng) → Looker Studio
+                  PXV_DASHBOARD_DATA (7 bảng) → Looker Studio
                                 ↓
                   Apps Script watchdog 09:00 canh pipeline
 ```
@@ -112,6 +112,7 @@ PXV_BACKEND=sheets python -m pxv.run_daily
 | `DIM_KHACH` | 1 khách | CLV theo phân khúc, khách quay lại, cohort |
 | `FUNNEL_MOI` | 1 khách mua dịch vụ mồi | Tỷ lệ upsell 30/60/90 ngày |
 | `FACT_DAILY` | 1 cặp (ngày × kênh) | Biểu đồ theo thời gian |
+| `FUNNEL_DAILY` | 1 cặp (ngày × kênh × bước) | Native Funnel chart có filter ngày/kênh |
 | `HIEU_QUA_KENH` | 1 cặp (tháng × kênh) | CPL, CAC, ROAS, CLV:CAC |
 | `DQ_STATUS` | 1 phép kiểm | Băng "cập nhật lúc", đèn đỏ/xanh |
 

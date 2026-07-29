@@ -47,6 +47,7 @@ def main(strict: bool = True) -> int:
     dim_khach = marts.build_dim_khach(master, df_inv)
     funnel_moi = marts.build_funnel_moi(df_inv)
     daily = marts.build_daily(master)
+    funnel_daily = marts.build_funnel_daily(daily)
     hieu_qua = marts.build_hieu_qua_kenh(master, costs, dim_khach)
 
     print("Kiểm chất lượng...")
@@ -58,6 +59,7 @@ def main(strict: bool = True) -> int:
         "DIM_KHACH": dim_khach,
         "FUNNEL_MOI": funnel_moi,
         "FACT_DAILY": daily,
+        "FUNNEL_DAILY": funnel_daily,
         "HIEU_QUA_KENH": hieu_qua,
         "DQ_STATUS": report.to_frame(),
         "CẦN_SỬA": report.cần_sửa,

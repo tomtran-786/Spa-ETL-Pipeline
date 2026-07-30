@@ -187,9 +187,15 @@ từng lỡ copy 2 SĐT và 4 tên khách thật vào test rồi phải rewrite 
 
 Hai mục đầu đã ĐO TRỰC TIẾP trên bản Sheets tải về 30/07/2026, không phải suy đoán.
 
-1. **Thẻ KPI trên Looker vẫn cộng các tỷ số** — ROAS hiện 27,19 (đúng 4,18),
-   CAC 5.139.536đ (đúng 784.516đ). Pipeline đã xuất bảng `KPI` để chữa; việc còn
-   lại là trỏ scorecard sang đó, xem [docs/LOOKER.md](docs/LOOKER.md) mục 3.
+1. **6 lỗi P0 trên dashboard Looker** — kiểm lần 2 ngày 30/07/2026, đối chiếu
+   ảnh chụp 3 trang với `output/PXV_DASHBOARD_DATA.xlsx`. Lỗi cộng-tỷ-số đã hết
+   (ROAS 27,19 → 3,97) và mọi chart theo kênh đã đúng, nhưng còn:
+   thẻ số chưa trỏ vào bảng `KPI` (phễu ra 2367→183 thay vì 2380→186) ·
+   chart "CLV theo kênh" đang vẽ cột `lead` chứ không phải `CLV_TB` ·
+   bảng dịch vụ mồi bị lọc ngày còn 78/214 khách ·
+   chi phí mô phỏng chưa có băng cảnh báo · footer "Last Updated 30/07" nói sai
+   độ tươi (dữ liệu dừng 25/02) · thiếu hẳn thẻ doanh thu toàn bộ 2,55 tỷ.
+   Checklist từng bước: [docs/LOOKER.md](docs/LOOKER.md) mục 14.
 2. **3 biến `PXV_SHEET_*` chưa khai** trên GitHub → tab Variables.
    `GCP_SA_KEY` đã đúng (`pxvclient@phunxamvic.iam.gserviceaccount.com`).
 3. **35 dòng ghi `NGÀY = 19/01/2025`** — cùng một ngày trong file lẽ ra là 2026,

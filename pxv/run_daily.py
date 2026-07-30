@@ -74,7 +74,10 @@ def main(strict: bool = True) -> int:
     else:
         config.OUT_DIR.mkdir(exist_ok=True)
         out = config.OUT_DIR / "PXV_DASHBOARD_DATA.xlsx"
-        with pd.ExcelWriter(out, datetime_format="DD/MM/YYYY") as writer:
+        # ISO, KHÔNG dd/mm — cùng lý do đã ghi ở io_sheets._to_cells. File này
+        # hay được mở rồi upload/import lại; dd/mm gặp locale Mỹ là lật ngày <= 12
+        # mà vẫn ra ngày hợp lệ, không ai nhìn ra.
+        with pd.ExcelWriter(out, datetime_format="YYYY-MM-DD") as writer:
             for name, df in tables.items():
                 df.to_excel(writer, sheet_name=name[:31], index=False)
         print(f"  {out}")

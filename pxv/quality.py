@@ -18,6 +18,12 @@ from .clean import PHONE_INVALID, out_of_window_mask, parse_date_vn
 # 95/325 (29%). Ngưỡng 5% nằm giữa, cách xa cả hai đầu.
 TY_LE_HEN_TRUOC_LEAD_DUNG = 0.05
 
+# Lưới thứ hai bắt cùng lỗi lật ngày/tháng, xem _check_lat_ngay_thang. Tháng có
+# quá ít lead thì mẫu không nói lên gì; một tháng lệch có thể là ngẫu nhiên,
+# hai tháng thì không — lật thật luôn tạo ra cả chục tháng như vậy.
+LAT_NGAY_MIN_LEAD_MOI_THANG = 5
+LAT_NGAY_MIN_THANG_NGHI = 2
+
 FAIL = "🔴 DỪNG"
 WARN = "🟠 CẢNH BÁO"
 OK = "🟢 ĐẠT"
@@ -79,6 +85,7 @@ def run_checks(df_lead: pd.DataFrame, df_inv: pd.DataFrame,
             "mốc để watchdog kiểm pipeline còn sống")
     _check_nguon_co_du_lieu(df_lead, df_inv, rep)
     _check_dates(df_lead, rep)
+    _check_lat_ngay_thang(df_lead, rep)
     _check_phones(df_lead, rep)
     _check_invoice_months(df_inv, rep)
     _check_invoice_freshness(df_inv, rep)
@@ -277,6 +284,49 @@ def _check_hen_truoc_lead(df_lead: pd.DataFrame, rep: QualityReport) -> pd.Serie
 
     rep.add("Hẹn sớm hơn lead", trang_thai, f"{n}/{tong}", ghi_chu)
     return nguoc
+
+
+def _check_lat_ngay_thang(df_lead: pd.DataFrame, rep: QualityReport) -> None:
+    """Lưới thứ hai bắt lỗi lật ngày/tháng — soi cột NGÀY, không cần NGÀY HẸN.
+
+    :func:`_check_hen_truoc_lead` chỉ nhìn được dòng có CẢ hẹn lẫn lead đọc
+    được. Dữ liệu cũ ghi hẹn thiếu năm nên mẫu tụt xuống 1/2.439 dòng — lưới đó
+    trên thực tế đã rách. Nó để lọt nguyên một sheet LEAD bị lật: 1.010/2.364
+    lead rơi sai tháng, dashboard Looker chỉ còn 1.358 lead thay vì 2.364, mà
+    cả 20 phép kiểm vẫn xanh suốt 5 tháng.
+
+    Dấu vân tay của lỗi: lật dd/mm biến NGÀY-TRONG-THÁNG thành SỐ THÁNG gốc, mà
+    tháng thì luôn <= 12. Nên mọi dòng bị lật đều đậu ở nửa đầu tháng, và chúng
+    rải sang những tháng vốn không có dữ liệu. Một tháng trọn vẹn mà không có
+    lead nào từ ngày 13 trở đi là chuyện không xảy ra với dữ liệu thật.
+
+    Bỏ qua tháng đang chạy: chạy ngày mùng 5 thì tháng đó mới có ngày 1-5, hình
+    dạng y hệt tháng bị lật. Tháng đã đóng và tháng ở TƯƠNG LAI đều xét — lead
+    ghi ngày chưa tới thì tự nó đã sai rồi.
+    """
+    if "Ngày Lead" not in df_lead.columns:
+        return
+
+    # to_datetime trước khi dùng .dt: sheet rỗng trả cột dtype object, và .dt
+    # trên đó ném AttributeError ở chỗ chẳng liên quan gì tới nguyên nhân.
+    ngày = pd.to_datetime(df_lead["Ngày Lead"], errors="coerce").dropna()
+    tháng_này = pd.Timestamp.now().normalize().to_period("M")
+    ngày = ngày[ngày.dt.to_period("M") != tháng_này]
+    if ngày.empty:
+        rep.add("Nghi lật ngày/tháng", OK, "không")
+        return
+
+    nghi = [str(kỳ) for kỳ, s in ngày.groupby(ngày.dt.to_period("M"))
+            if len(s) >= LAT_NGAY_MIN_LEAD_MOI_THANG and (s.dt.day <= 12).all()]
+
+    if len(nghi) >= LAT_NGAY_MIN_THANG_NGHI:
+        rep.add("Nghi lật ngày/tháng", FAIL, ", ".join(nghi),
+                f"{len(nghi)} tháng không có lead nào sau ngày 12 — ngày đã bị đọc "
+                "mm/dd lúc đưa LEAD vào Sheets. Import lại tab LEAD từ bản .xlsx "
+                "của scripts/migrate_lead_csv.py, nhớ BỎ TICK 'Convert text to "
+                "numbers, dates and formulas'")
+    else:
+        rep.add("Nghi lật ngày/tháng", OK, "không")
 
 
 def _check_phones(df_lead: pd.DataFrame, rep: QualityReport) -> None:

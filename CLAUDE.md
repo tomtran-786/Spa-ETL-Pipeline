@@ -5,7 +5,8 @@ sửa gì — phần lớn quyết định ở đây trông tùy tiện nếu kh
 có vài cái bẫy dữ liệu chỉ lộ ra khi chạy thật.
 
 Tài liệu khác: [README.md](README.md) kiến trúc · [RUNBOOK.md](RUNBOOK.md) vận
-hành · [apps_script/HUONG_DAN_CAI_DAT.md](apps_script/HUONG_DAN_CAI_DAT.md) cài đặt.
+hành · [apps_script/HUONG_DAN_CAI_DAT.md](apps_script/HUONG_DAN_CAI_DAT.md) cài đặt ·
+[docs/LOOKER.md](docs/LOOKER.md) cấu hình dashboard.
 
 ---
 
@@ -66,6 +67,14 @@ trị (`TÌNH TRẠNG` = tình trạng tương tác, `TRẠNG THÁI` = trạng t
 **`NGÀY HẸN` cũ ghi thiếu năm** (`10/01`, `22/1`): 327/328 dòng không parse
 được. `parse_date_vn(value, sau_ngay)` suy năm sao cho hẹn ≥ ngày lead. Không
 truyền `sau_ngay` thì vẫn trả `NaT` — cố tình, không đoán bừa.
+
+**Ngày bị LẬT NGÀY/THÁNG khi import LEAD vào Sheets.** Locale Mỹ đọc
+`10/01/2026` thành 1 tháng 10. Lật KHÔNG đều: ngày > 12 nằm im, ngày <= 12 thì
+lật, và kết quả vẫn là ngày hợp lệ nên mắt thường không thấy. Đã làm dashboard
+Looker mất 1.010/2.364 lead suốt 5 tháng trong khi 20 phép kiểm đều xanh. Hai
+lưới bắt: `_check_hen_truoc_lead` (yếu — dữ liệu cũ ghi hẹn thiếu năm nên mẫu
+chỉ còn 1/2.439 dòng) và `_check_lat_ngay_thang` (DỪNG job khi >=2 tháng không
+có lead nào sau ngày 12). Mọi chỗ ghi ngày ra ngoài phải dùng **ISO**.
 
 **T12/2025 mất toàn bộ hóa đơn**, không khôi phục được. `config.KNOWN_DATA_GAPS`
 bỏ qua tháng này khi kiểm thủng tháng. Biểu đồ theo thời gian phải vẽ khoảng
@@ -136,7 +145,8 @@ trần cứng là 9,6% lead trùng tên nhau.
 
 ## Trạng thái
 
-`main` = 44 file tracked, 122 test (local) / 107+7skip (CI). Remote đã có lại.
+`main` = 45 file tracked, 138 test (local). 7 test trong `test_golden.py` tự skip
+khi thiếu `output/Master_Pipeline_2026.xlsx`, nên CI chạy 131+7skip. Remote đã có lại.
 
 Lịch sử git **đã dọn PII** bằng `git filter-repo` — repo từng public và lộ tên +
 SĐT của ~8.000 khách. Backup lịch sử cũ ở `../PXV-backup-*.bundle`.
@@ -145,13 +155,27 @@ từng lỡ copy 2 SĐT và 4 tên khách thật vào test rồi phải rewrite 
 
 ### Đang chặn
 
-1. **Sheet `LEAD` rỗng** → chạy `scripts/migrate_lead_csv.py` rồi File → Import
-   bản `.xlsx` vào ô A2 (bỏ tick "Convert text to numbers").
-2. **3 biến `PXV_SHEET_*` chưa khai** trên GitHub → tab Variables.
+Hai mục đầu đã ĐO TRỰC TIẾP trên bản Sheets tải về 30/07/2026, không phải suy đoán.
+
+1. **Tab `LEAD` đang bị LẬT NGÀY/THÁNG — 1.012/2.426 dòng (42%) sai tháng.**
+   T1 và T2 mất sạch ngày 3–12; tháng 3–12/2026 chỉ có ngày 1–2. Looker lọc
+   T1–T2 nên chỉ thấy 886+486 = **1.358 lead thay vì 2.364**. Sửa: import lại
+   tab `LEAD` từ bản `.xlsx` của `scripts/migrate_lead_csv.py` (ô A2, **bỏ tick**
+   "Convert text to numbers"). **Chép ra 5 lead nhập tay ngày 28/07/2026 trước
+   khi import đè.** `_check_lat_ngay_thang` giờ DỪNG job khi gặp lại.
+2. **Kho hóa đơn trên Sheets thiếu T11/2025** — 302 hóa đơn, 915.858.500đ.
+   `INVOICES_RAW` chỉ có 711 dòng từ 04/01/2026, bản local có 1.013 dòng từ
+   01/11/2025. Doanh thu trong kỳ không đổi, nhưng CLV tụt 5,69tr → 5,42tr,
+   khách quay lại 27,4% → 24,3%, **upsell 90 ngày 24,8% → 7,0%**. Chưa phép
+   kiểm nào bắt được: `Thủng tháng hóa đơn` chỉ dò lỗ *giữa* min và max, lịch
+   sử cụt ở đầu thì không tạo ra lỗ.
+3. **3 biến `PXV_SHEET_*` chưa khai** trên GitHub → tab Variables.
    `GCP_SA_KEY` đã đúng (`pxvclient@phunxamvic.iam.gserviceaccount.com`).
-3. **35 dòng ghi `NGÀY = 19/01/2025`** — cùng một ngày trong file lẽ ra là 2026,
+4. **35 dòng ghi `NGÀY = 19/01/2025`** — cùng một ngày trong file lẽ ra là 2026,
    nghi gõ nhầm năm hàng loạt. Chưa quyết định sửa hay giữ.
-4. `.DS_Store` lỡ được commit (`22f6ce4`) — nên xóa và thêm vào `.gitignore`.
+5. **Chi phí QC trên Sheets là số MÔ PHỎNG** — tab `CHI_PHÍ_QC` đang chứa đúng
+   `output/toy/chi_phi_qc_baseline.csv` (145.920.000đ). Mọi ROAS/CAC/CPL trên
+   dashboard là số bịa, chưa có nhãn cảnh báo.
 
 ### Chưa làm (theo plan)
 

@@ -4,6 +4,8 @@ Gộp dữ liệu tư vấn của sales, lịch hẹn và hóa đơn KiotViet th
 
 > **Cài đặt lần đầu**: [apps_script/HUONG_DAN_CAI_DAT.md](apps_script/HUONG_DAN_CAI_DAT.md)
 > **Vận hành hằng ngày** (export file, xử lý cảnh báo, đọc số): [RUNBOOK.md](RUNBOOK.md)
+> **Dựng dashboard**: [docs/LOOKER.md](docs/LOOKER.md) — công thức KPI đúng và các
+> bẫy khi Looker gộp/lọc lại số pipeline đã tính.
 > Tài liệu này dành cho người sửa code.
 
 ---

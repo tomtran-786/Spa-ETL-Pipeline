@@ -28,6 +28,7 @@ Nếu làm hết các bước mà vẫn không xong → xem mục [Khi nào cầ
 
 **Đọc hiểu**
 - [Ý nghĩa các con số trên dashboard](#ý-nghĩa-các-con-số-trên-dashboard)
+- [Khi số trên dashboard khác số trong sheet](#khi-số-trên-dashboard-khác-số-trong-sheet)
 - [Những chỗ dữ liệu đã biết là thiếu](#những-chỗ-dữ-liệu-đã-biết-là-thiếu)
 - [Khi nào cần gọi người kỹ thuật](#khi-nào-cần-gọi-người-kỹ-thuật)
 
@@ -219,6 +220,17 @@ Số liệu kỳ T1–T2/2026: **2.364 → 1.274 → 303 → 186**, tỷ lệ ch
 ### CLV (giá trị khách hàng)
 
 Tổng tiền một khách đã chi. **Lưu ý:** hiện chỉ có dữ liệu khoảng 4 tháng, nên đây là *giá trị trong kỳ*, chưa phải giá trị trọn đời thật. Con số sẽ đáng tin dần khi tích lũy đủ 12 tháng.
+
+### Khi số trên dashboard khác số trong sheet
+
+Pipeline tính đúng nhưng Looker vẫn hiện sai được — nó gộp và lọc lại số đã tính. Bản kiểm 30/07/2026 tìm ra **7/9 thẻ KPI sai**, nặng nhất là mất 43% lead do ngày bị đọc nhầm ngày/tháng.
+
+Cách sửa từng lỗi nằm ở **[docs/LOOKER.md](docs/LOOKER.md)**. Ba dấu hiệu cần biết:
+
+- **Biểu đồ theo thời gian trống từ ngày 3 đến 12 mỗi tháng** → ngày bị lật lúc import tab LEAD. Import lại, xem [Sales: nhập lead](#sales-nhập-lead).
+- **CLV và tỷ lệ upsell thấp bất thường** → kho hóa đơn thiếu lịch sử. Kiểm tab `INVOICES_RAW`: hóa đơn cũ nhất phải là 01/11/2025. Thiếu thì thả lại file KiotViet vào Drive.
+- **Thẻ ROAS / CAC cao bất thường** → Looker đang cộng các tỷ số lại với nhau.
+- **Chi phí quảng cáo hiện 145.920.000đ** → đó là số **mô phỏng** cho case study, không phải chi tiêu thật.
 
 ---
 

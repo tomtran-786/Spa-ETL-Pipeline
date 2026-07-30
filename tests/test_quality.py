@@ -153,3 +153,73 @@ def test_ca_hai_nguon_deu_co_thi_khong_bao_gi(bo_ba):
     loi = {c.tên for c in rep.failed}
     assert "Sheet LEAD có dữ liệu" not in loi
     assert "Kho hóa đơn có dữ liệu" not in loi
+
+
+# --- Nghi lật ngày/tháng ------------------------------------------------------
+# Lỗi: Sheets locale Mỹ đọc '10/01/2026' thành 1 tháng 10. Ngày > 12 không lật
+# được nên nằm im, ngày <= 12 thì lật — kết quả vẫn là ngày hợp lệ. Dấu vân tay
+# là những tháng KHÔNG CÓ lead nào sau ngày 12.
+
+TEN_KIEM_LAT = "Nghi lật ngày/tháng"
+_THANG_NAY = pd.Timestamp.now().normalize().to_period("M")
+
+
+def _ngay(lech_thang: int, cac_ngay):
+    """Ngày trong tháng cách tháng hiện tại ``lech_thang`` tháng về trước."""
+    ky = _THANG_NAY - lech_thang
+    return [pd.Timestamp(year=ky.year, month=ky.month, day=d) for d in cac_ngay]
+
+
+def _kiem_lat(*nhom_ngay):
+    rep = quality.QualityReport()
+    ngay = [d for nhom in nhom_ngay for d in nhom]
+    quality._check_lat_ngay_thang(pd.DataFrame({"Ngày Lead": ngay}), rep)
+    return next(c for c in rep.checks if c.tên == TEN_KIEM_LAT)
+
+
+def test_ngay_trai_deu_ca_thang_thi_khong_bao():
+    kiem = _kiem_lat(_ngay(2, range(1, 26)), _ngay(3, range(1, 26)))
+    assert kiem.trạng_thái == quality.OK
+
+
+def test_hai_thang_khong_co_ngay_nao_sau_12_thi_phai_DUNG():
+    kiem = _kiem_lat(_ngay(2, [1, 2, 3, 4, 5]), _ngay(3, [1, 2, 3, 4, 5]))
+    assert kiem.trạng_thái == FAIL
+    # Thông báo phải chỉ được việc cần làm, không chỉ báo có lỗi.
+    assert "Convert text to numbers" in kiem.ghi_chú
+
+
+def test_mot_thang_le_loi_chua_du_de_DUNG():
+    """Một tháng vắng nửa cuối có thể là spa nghỉ; lật thật tạo ra cả chục tháng."""
+    kiem = _kiem_lat(_ngay(2, [1, 2, 3, 4, 5]), _ngay(3, range(1, 26)))
+    assert kiem.trạng_thái == quality.OK
+
+
+def test_thang_it_lead_khong_du_mau_thi_bo_qua():
+    kiem = _kiem_lat(_ngay(2, [1, 2]), _ngay(3, [1, 2]), _ngay(4, range(1, 26)))
+    assert kiem.trạng_thái == quality.OK
+
+
+def test_thang_dang_chay_khong_bi_tinh_oan():
+    """Chạy ngày mùng 5 thì tháng này chỉ có ngày 1-5 — hình dạng y hệt tháng bị lật."""
+    kiem = _kiem_lat(_ngay(0, [1, 2, 3, 4, 5]), _ngay(1, [1, 2, 3, 4, 5]))
+    assert kiem.trạng_thái == quality.OK
+
+
+def test_lead_ghi_ngay_tuong_lai_van_bi_soi():
+    """Lật ngày đẩy phần lớn dòng sang tháng CHƯA TỚI — bỏ qua là để lọt lỗi."""
+    kiem = _kiem_lat(_ngay(-2, [1, 2, 3, 4, 5]), _ngay(-3, [1, 2, 3, 4, 5]))
+    assert kiem.trạng_thái == FAIL
+
+
+def test_lead_bi_lat_ngay_thang_lam_DUNG_ca_pipeline(bo_ba):
+    """Phép kiểm phải chặn được job thật, không chỉ trả về một dòng trạng thái."""
+    lead, inv, master = bo_ba
+    lat = pd.concat(
+        [lead.assign(**{"Ngày Lead": d})
+         for d in _ngay(2, [1, 2, 3, 4, 5]) + _ngay(3, [1, 2, 3, 4, 5])],
+        ignore_index=True)
+    rep = quality.run_checks(lat, inv, master, None, None)
+    assert TEN_KIEM_LAT in _ten_cac_loi(rep)
+    with pytest.raises(quality.DataQualityError):
+        rep.raise_if_failed()

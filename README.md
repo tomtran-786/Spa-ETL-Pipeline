@@ -1,4 +1,4 @@
-# Phun Xăm Vic — Sales & Marketing Data Pipeline
+# Spa — Sales & Marketing Data Pipeline
 
 ETL pipeline hợp nhất dữ liệu sales, lịch hẹn, KiotViet và quảng cáo để đo phễu
 chuyển đổi, doanh thu, hiệu quả kênh, CLV và hành vi quay lại.

@@ -64,7 +64,7 @@ Google Sheets          Drive/KiotViet_Drop      Drive/Pancake_Drop
                   GitHub Actions — cron 06:15 hằng ngày
                   pytest → pxv.run_daily → kiểm chất lượng
                                 ↓
-                  PXV_DASHBOARD_DATA (7 bảng) → Looker Studio
+                  PXV_DASHBOARD_DATA (9 bảng) → Looker Studio
                                 ↓
                   Apps Script watchdog 09:00 canh pipeline
 ```
@@ -87,13 +87,13 @@ pxv/
   io_local.py   Đọc file trên máy
   io_sheets.py  Đọc/ghi Google Sheets — cùng interface với io_local
   transform.py  build_master(): gộp 3 nguồn, phân nhóm MECE, cờ phễu
-  marts.py      DIM_KHACH, FUNNEL_MOI, FACT_DAILY, HIEU_QUA_KENH
-  quality.py    20 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
+  marts.py      DIM_KHACH, FUNNEL_MOI, FACT_DAILY, HIEU_QUA_KENH, KPI
+  quality.py    21 phép kiểm, cho pipeline DỪNG khi dữ liệu sai
   run_daily.py  Điểm chạy duy nhất
 
 apps_script/    8 file .gs dán vào Google Sheets
                 → HUONG_DAN_CAI_DAT.md: hướng dẫn cài từng bước
-tests/          122 test, dùng dữ liệu bịa
+tests/          153 test, dùng dữ liệu bịa
 scripts/        purge_pii_history.sh · migrate_lead_csv.py
 spa.ipynb       Sổ tay khám phá ad-hoc, import từ pxv
 ```
@@ -112,13 +112,16 @@ PXV_BACKEND=sheets python -m pxv.run_daily
 |---|---|---|
 | `MASTER` | 1 cặp (SĐT × hóa đơn) | Doanh thu, số lead, tỷ lệ chốt, sản phẩm, MECE |
 | `DIM_KHACH` | 1 khách | CLV theo phân khúc, khách quay lại, cohort |
-| `FUNNEL_MOI` | 1 khách mua dịch vụ mồi | Tỷ lệ upsell 30/60/90 ngày |
+| `FUNNEL_MOI` | 1 khách mua dịch vụ mồi | Bán chéo cùng ngày vs upsell 30/60/90 ngày |
 | `FACT_DAILY` | 1 cặp (ngày × kênh) | Biểu đồ theo thời gian |
 | `FUNNEL_DAILY` | 1 cặp (ngày × kênh × bước) | Native Funnel chart có filter ngày/kênh |
-| `HIEU_QUA_KENH` | 1 cặp (tháng × kênh) | CPL, CAC, ROAS, CLV:CAC |
+| `HIEU_QUA_KENH` | 1 cặp (tháng × kênh) | CPL, CAC, ROAS, CLV:CAC theo tháng |
+| `KPI` | 1 phạm vi (`TỔNG` + mỗi kênh) | **Mọi thẻ số trên dashboard** |
 | `DQ_STATUS` | 1 phép kiểm | Băng "cập nhật lúc", đèn đỏ/xanh |
 
 **Vì sao tính sẵn CLV và funnel mồi ở pipeline thay vì để Looker tính.** `MASTER` có mỗi dòng là một cặp (SĐT × hóa đơn), nên khách mua 5 lần chiếm 5 dòng. Trên cấu trúc đó `AVG(CLV)` sẽ chia cho mẫu số bị đếm 5 lần, còn tỷ lệ upsell thì cần so ngày mua đầu với các lần sau — Looker không làm được. Nguyên tắc: mỗi câu hỏi trả lời từ **một** bảng, không dùng Blend.
+
+**Vì sao có thêm bảng `KPI`.** Cùng lý do, ở một dạng khác. `HIEU_QUA_KENH` giữ CPL/CAC/ROAS ở grain (tháng × kênh); Looker mặc định `SUM`, mà cộng tỷ số thì vô nghĩa — dashboard T7/2026 hiện ROAS 27,19 trong khi đúng là 4,18, và CAC sai 16 lần. `KPI` gộp sẵn với trọng số đúng nên `SUM` hay `AVG` trên một dòng đều ra cùng kết quả. Xem [docs/LOOKER.md](docs/LOOKER.md).
 
 ---
 

@@ -18,10 +18,13 @@ Chạy `python -m pxv.run_daily` (backend local) phải luôn ra:
 |---|---|
 | Doanh thu | **2.552.689.000đ** |
 | Hóa đơn unique | **710** |
-| Phễu | **2364 → 1274 → 303 → 186** |
-| Tỷ lệ chốt | **7,87%** |
-| CLV TB | 5.689.481đ (594 khách, 27,4% quay lại) |
-| Dịch vụ mồi | 290 khách, 24,8% upsell 90 ngày |
+| Phễu | **2380 → 1274 → 303 → 186** |
+| Tỷ lệ chốt | **7,82%** |
+| CLV TB | 5.396.710đ (458 khách, 24,2% quay lại) |
+| Dịch vụ mồi | 214 khách — 19,2% bán chéo cùng ngày, 7,0% quay lại upsell 90 ngày |
+
+Ba số đầu là bất biến thật. Ba số sau phụ thuộc `INVOICE_HISTORY_START`; đổi mốc
+đó thì chúng đổi theo — xem mục bẫy bên dưới.
 
 `tests/test_golden.py` đối chiếu với `output/Master_Pipeline_2026.xlsx`. File đó
 chứa dữ liệu khách nên **nằm ngoài git** — test tự skip khi không có, nên CI chạy
@@ -79,6 +82,33 @@ có lead nào sau ngày 12). Mọi chỗ ghi ngày ra ngoài phải dùng **ISO*
 **T12/2025 mất toàn bộ hóa đơn**, không khôi phục được. `config.KNOWN_DATA_GAPS`
 bỏ qua tháng này khi kiểm thủng tháng. Biểu đồ theo thời gian phải vẽ khoảng
 trống có nhãn, **không phải doanh thu = 0**.
+
+**Ô `NGÀY` để trống từng làm mất lead mà không ai biết.** `NaT >= window_start`
+luôn False, nên `build_master` lặng lẽ vứt 20 dòng — không bảng nào hiện, không
+phép kiểm nào đếm. Giờ `clean.parse_lead_dates` gán chúng về
+`config.LEAD_DATE_DEFAULT` (01/01/2026). **Chỉ ô TRỐNG được gán**; ô có chữ rác
+vẫn trả `NaT` để phép kiểm "Ngày không đọc được" còn tác dụng. Hệ quả: ngày
+01/01/2026 có 53 lead thay vì 33, và không có cách phân biệt về sau (nghiệp vụ
+chọn không đánh dấu).
+
+**Lịch sử hóa đơn bị cắt ở `config.INVOICE_HISTORY_START` (01/01/2026).** File
+KiotViet local có từ T11/2025 nhưng tab `INVOICES_RAW` trên Sheets thì không;
+giữ nguyên thì CLV/upsell hai backend lệch nhau (594 vs 461 khách) và bảng số
+bất biến vô nghĩa. Đổi mốc này là **đổi luôn CLV, tỷ lệ quay lại, funnel mồi** —
+và lần chạy kế tiếp sẽ DỪNG ở phép kiểm `Doanh thu tháng đã đóng không đổi`
+(đúng thiết kế); chạy lần hai là mốc mới được ghi nhận.
+
+**`Ngày HĐ` bị CẮT PHẦN GIỜ ngay lúc đọc** (`io_local.load_invoices`). File
+Excel giữ `10:51:07`, tab `INVOICES_RAW` trên Sheets chỉ còn ngày — và chênh lệch
+đó từng làm tỷ lệ upsell 90 ngày ra **17,3% ở local so với 7,0% trên Sheets, cùng
+một bộ 711 hóa đơn**. Nguyên nhân: khách mua thêm dịch vụ chính cùng ngày chỉ
+được tính khi giờ mua sau giờ mua mồi — tức một chỉ số 90 ngày lại phụ thuộc thứ
+tự bấm máy tính tiền. Đừng bỏ `.dt.normalize()` đó.
+
+**Bán chéo cùng ngày KHÁC upsell quay lại**, và `build_funnel_moi` tách hai cột
+riêng: `bán_chéo_cùng_ngày` (19,2%) so với `upsell_30d/60d/90d` nay chỉ đếm
+khách quay lại ngày khác (7,0%). Gộp lại ra 23,8% nhưng che mất câu hỏi thật:
+dịch vụ mồi có kéo được khách quay lại không.
 
 **~75% doanh thu đến từ khách vãng lai không có hồ sơ lead.** Đừng dùng ROAS
 theo kênh làm mẫu số cho toàn bộ doanh thu.
@@ -145,8 +175,8 @@ trần cứng là 9,6% lead trùng tên nhau.
 
 ## Trạng thái
 
-`main` = 45 file tracked, 138 test (local). 7 test trong `test_golden.py` tự skip
-khi thiếu `output/Master_Pipeline_2026.xlsx`, nên CI chạy 131+7skip. Remote đã có lại.
+`main` = 47 file tracked, 153 test (local). 7 test trong `test_golden.py` tự skip
+khi thiếu `output/Master_Pipeline_2026.xlsx`, nên CI chạy 146+7skip. Remote đã có lại.
 
 Lịch sử git **đã dọn PII** bằng `git filter-repo` — repo từng public và lộ tên +
 SĐT của ~8.000 khách. Backup lịch sử cũ ở `../PXV-backup-*.bundle`.
@@ -157,25 +187,20 @@ từng lỡ copy 2 SĐT và 4 tên khách thật vào test rồi phải rewrite 
 
 Hai mục đầu đã ĐO TRỰC TIẾP trên bản Sheets tải về 30/07/2026, không phải suy đoán.
 
-1. **Tab `LEAD` đang bị LẬT NGÀY/THÁNG — 1.012/2.426 dòng (42%) sai tháng.**
-   T1 và T2 mất sạch ngày 3–12; tháng 3–12/2026 chỉ có ngày 1–2. Looker lọc
-   T1–T2 nên chỉ thấy 886+486 = **1.358 lead thay vì 2.364**. Sửa: import lại
-   tab `LEAD` từ bản `.xlsx` của `scripts/migrate_lead_csv.py` (ô A2, **bỏ tick**
-   "Convert text to numbers"). **Chép ra 5 lead nhập tay ngày 28/07/2026 trước
-   khi import đè.** `_check_lat_ngay_thang` giờ DỪNG job khi gặp lại.
-2. **Kho hóa đơn trên Sheets thiếu T11/2025** — 302 hóa đơn, 915.858.500đ.
-   `INVOICES_RAW` chỉ có 711 dòng từ 04/01/2026, bản local có 1.013 dòng từ
-   01/11/2025. Doanh thu trong kỳ không đổi, nhưng CLV tụt 5,69tr → 5,42tr,
-   khách quay lại 27,4% → 24,3%, **upsell 90 ngày 24,8% → 7,0%**. Chưa phép
-   kiểm nào bắt được: `Thủng tháng hóa đơn` chỉ dò lỗ *giữa* min và max, lịch
-   sử cụt ở đầu thì không tạo ra lỗ.
-3. **3 biến `PXV_SHEET_*` chưa khai** trên GitHub → tab Variables.
+1. **Thẻ KPI trên Looker vẫn cộng các tỷ số** — ROAS hiện 27,19 (đúng 4,18),
+   CAC 5.139.536đ (đúng 784.516đ). Pipeline đã xuất bảng `KPI` để chữa; việc còn
+   lại là trỏ scorecard sang đó, xem [docs/LOOKER.md](docs/LOOKER.md) mục 3.
+2. **3 biến `PXV_SHEET_*` chưa khai** trên GitHub → tab Variables.
    `GCP_SA_KEY` đã đúng (`pxvclient@phunxamvic.iam.gserviceaccount.com`).
-4. **35 dòng ghi `NGÀY = 19/01/2025`** — cùng một ngày trong file lẽ ra là 2026,
+3. **35 dòng ghi `NGÀY = 19/01/2025`** — cùng một ngày trong file lẽ ra là 2026,
    nghi gõ nhầm năm hàng loạt. Chưa quyết định sửa hay giữ.
-5. **Chi phí QC trên Sheets là số MÔ PHỎNG** — tab `CHI_PHÍ_QC` đang chứa đúng
+4. **Chi phí QC trên Sheets là số MÔ PHỎNG** — tab `CHI_PHÍ_QC` đang chứa đúng
    `output/toy/chi_phi_qc_baseline.csv` (145.920.000đ). Mọi ROAS/CAC/CPL trên
    dashboard là số bịa, chưa có nhãn cảnh báo.
+5. ~~`FUNNEL_MOI` hai backend lệch~~ — **đã đóng 30/07/2026.** Đối chiếu bản
+   export `INVOICES_RAW`: 710 hóa đơn và `Tên hàng` giống hệt nhau, SĐT cũng
+   giống. Lệch là do `Ngày HĐ` bên Sheets mất phần giờ. Đã cắt giờ ở `io_local`
+   và so trên NGÀY; hai backend giờ ra cùng 214 khách / 41 bán chéo / 15 upsell.
 
 ### Chưa làm (theo plan)
 

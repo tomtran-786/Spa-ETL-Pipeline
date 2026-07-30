@@ -5,7 +5,7 @@ import pytest
 
 from pxv.clean import (PHONE_EMPTY, PHONE_INTL, PHONE_INVALID, PHONE_VN,
                        clean_money, clean_phone, out_of_window_mask,
-                       parse_date_vn, phone_kind)
+                       parse_date_vn, parse_lead_dates, phone_kind)
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -126,3 +126,27 @@ def test_ngay_khong_ton_tai_tra_NaT():
 def test_co_nam_day_du_thi_bo_qua_moc():
     """Chuỗi đã có năm thì mốc không được phép ghi đè."""
     assert parse_date_vn("19/01/2025", pd.Timestamp("2026-06-01")) == pd.Timestamp("2025-01-19")
+
+
+# --- parse_lead_dates ---------------------------------------------------------
+# Ô NGÀY để trống từng thành NaT, mà `NaT >= window_start` luôn False nên
+# build_master vứt luôn 20 lead — không bảng nào hiện, không phép kiểm nào đếm.
+
+MAC_DINH = pd.Timestamp("2026-01-01")
+
+
+def test_o_trong_duoc_gan_mac_dinh():
+    s = pd.Series([None, "", "   ", np.nan])
+    assert (parse_lead_dates(s, MAC_DINH) == MAC_DINH).all()
+
+
+def test_o_co_ngay_that_khong_bi_dong_vao():
+    s = pd.Series(["05/01/2026", "20/02/2026"])
+    assert list(parse_lead_dates(s, MAC_DINH)) == [
+        pd.Timestamp("2026-01-05"), pd.Timestamp("2026-02-20")]
+
+
+def test_o_co_chu_rac_van_tra_NaT_chu_khong_gan_mac_dinh():
+    """Gán mặc định lên ô gõ sai là bóp méo số VÀ giết phép kiểm 'Ngày không đọc được'."""
+    ket_qua = parse_lead_dates(pd.Series(["hỏi lại sau", "??"]), MAC_DINH)
+    assert ket_qua.isna().all()

@@ -72,6 +72,22 @@ def build_funnel_moi(df_inv: pd.DataFrame,
 
     Trả lời: khách vào bằng dịch vụ mồi có nâng cấp lên dịch vụ chính không,
     sau bao lâu, và mang về bao nhiêu tiền.
+
+    HAI HÀNH VI TÁCH RIÊNG, đừng gộp:
+
+    * ``bán_chéo_cùng_ngày`` — mua thêm dịch vụ chính NGAY trong ngày mua mồi.
+      Đây là bán thêm tại quầy trong cùng một lượt khách. 41/214 khách (19,2%).
+    * ``upsell_30d/60d/90d`` — khách QUAY LẠI vào một ngày khác. 15/214 (7,0%).
+
+    Gộp chung thì con số 23,8% không trả lời được câu hỏi thật sự đáng giá:
+    dịch vụ mồi có kéo được khách quay lại hay không.
+
+    Trước đây hai thứ này bị trộn, và tệ hơn: kết quả phụ thuộc việc dữ liệu có
+    còn phần GIỜ hay không. Local giữ giờ nên đếm được ca "mua mồi 10h, mua
+    thêm 14h cùng ngày" (ra 17,3%); Sheets mất giờ nên bỏ hết (ra 7,0%). Tức là
+    một chỉ số 90 ngày lại phụ thuộc thứ tự bấm máy tính tiền trong cùng buổi.
+    Giờ ``io_local`` cắt phần giờ, và so sánh ở đây làm trên NGÀY — hai backend
+    ra cùng một số, không cần biết nguồn có giờ hay không.
     """
     window_start = window_start or config.WINDOW_START
     inv = df_inv.dropna(subset=["Phone_Clean"]).copy()
@@ -102,22 +118,31 @@ def build_funnel_moi(df_inv: pd.DataFrame,
             "dịch_vụ_mồi": r.dịch_vụ_mồi,
             "doanh_thu_mồi": r.doanh_thu_mồi,
         }
+        # So trên NGÀY, không trên mốc thời gian: nguồn có giờ hay không cũng
+        # phải ra cùng kết quả (xem docstring).
         if later is None or later.empty:
-            after = later
+            cách_ngày = None
         else:
-            after = later[later["Ngày HĐ"] > r.ngày_mua_mồi]
+            cách_ngày = (later["Ngày HĐ"].dt.normalize()
+                         - r.ngày_mua_mồi.normalize()).dt.days
 
+        cùng_ngày = later[cách_ngày == 0] if cách_ngày is not None else None
+        rec["bán_chéo_cùng_ngày"] = cùng_ngày is not None and not cùng_ngày.empty
+        rec["doanh_thu_bán_chéo"] = (int(cùng_ngày["Doanh Thu (VNĐ)"].sum())
+                                     if rec["bán_chéo_cùng_ngày"] else 0)
+
+        after = later[cách_ngày >= 1] if cách_ngày is not None else None
         if after is None or after.empty:
             rec.update({f"upsell_{d}d": False for d in config.UPSELL_WINDOWS})
             rec.update({"doanh_thu_upsell": 0, "số_ngày_đến_upsell": np.nan,
                         "dịch_vụ_upsell_đầu": None})
         else:
-            gap = (after["Ngày HĐ"] - r.ngày_mua_mồi).dt.days
+            gap = cách_ngày[cách_ngày >= 1]
             for d in config.UPSELL_WINDOWS:
                 rec[f"upsell_{d}d"] = bool((gap <= d).any())
             rec["doanh_thu_upsell"] = int(after["Doanh Thu (VNĐ)"].sum())
             rec["số_ngày_đến_upsell"] = int(gap.min())
-            rec["dịch_vụ_upsell_đầu"] = after.loc[after["Ngày HĐ"].idxmin(), "Tên hàng"]
+            rec["dịch_vụ_upsell_đầu"] = after.loc[gap.idxmin(), "Tên hàng"]
         rows.append(rec)
 
     return pd.DataFrame(rows).sort_values("ngày_mua_mồi").reset_index(drop=True)
@@ -237,6 +262,110 @@ def build_hieu_qua_kenh(master: pd.DataFrame, costs: pd.DataFrame,
 
     return out.sort_values(["tháng", "doanh_thu"], ascending=[True, False]) \
               .reset_index(drop=True)
+
+
+KPI_TONG = "TỔNG"
+KPI_COLUMNS = [
+    "phạm vi", "lead", "có_sđt", "có_hẹn", "khách_mua",
+    "tỷ_lệ_có_sđt_%", "tỷ_lệ_hẹn_%", "tỷ_lệ_chốt_%",
+    "doanh_thu_quy_kết", "doanh_thu_toàn_bộ", "chi phí",
+    "CPL", "CAC", "ROAS",
+    "CLV_TB", "tỷ_lệ_quay_lại_%",
+    "khách_mua_mồi", "bán_chéo_cùng_ngày_%", "upsell_90d_%",
+]
+
+
+def build_kpi(master: pd.DataFrame, costs: pd.DataFrame,
+              dim_khach: pd.DataFrame | None = None,
+              funnel_moi: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Một dòng = một PHẠM VI: dòng ``TỔNG`` cộng một dòng mỗi kênh.
+
+    Bảng này tồn tại để chặn một lỗi đã xảy ra thật. ``HIEU_QUA_KENH`` giữ
+    CPL/CAC/ROAS ở grain (tháng × kênh); Looker mặc định SUM, mà cộng tỷ số thì
+    vô nghĩa — dashboard T7/2026 hiện ROAS 27,19 (đúng 4,18) và CAC 5.139.536đ
+    (đúng 784.516đ, sai 16 lần). CPL còn khớp từng đồng với tổng 2 tháng.
+
+    Ở đây mọi tỷ số đã gộp sẵn với trọng số đúng, nên scorecard chỉ việc trỏ
+    vào: SUM hay AVG trên MỘT dòng đều ra cùng kết quả. Không còn đường sai.
+
+    ``doanh_thu_quy_kết`` và ``doanh_thu_toàn_bộ`` nằm cạnh nhau là cố ý —
+    chênh lệch giữa hai cột chính là phần khách vãng lai không có hồ sơ lead
+    (~75%), thứ vẫn hay bị lấy nhầm làm mẫu số ROAS.
+
+    Bảng đã gộp theo TOÀN KỲ nên đừng đặt bộ lọc ngày lên nó trong Looker.
+    """
+    if master.empty:
+        return pd.DataFrame(columns=KPI_COLUMNS)
+
+    lead_side = master[master["Ngày Lead"].notna()]
+    chi_phi_kênh = (costs.groupby("kênh")["chi phí"].sum()
+                    if not costs.empty else pd.Series(dtype=float))
+
+    def _đếm(df: pd.DataFrame) -> dict:
+        return {
+            "lead": int(df["[F] 1_Có Inbox"].sum()),
+            "có_sđt": int(df["[F] 2_Có SĐT"].sum()),
+            "có_hẹn": int(df["[F] 3_Có Đặt Lịch"].sum()),
+            "khách_mua": int(df["[F] 4_Có Ra Đơn"].sum()),
+            "doanh_thu_quy_kết": int(df["Doanh Thu (VNĐ)"].sum()),
+        }
+
+    dòng = [{
+        "phạm vi": KPI_TONG,
+        **_đếm(lead_side),
+        # Toàn bộ doanh thu, GỒM cả vãng lai — chỉ có ý nghĩa ở dòng TỔNG.
+        "doanh_thu_toàn_bộ": int(master["Doanh Thu (VNĐ)"].sum()),
+        "chi phí": int(chi_phi_kênh.sum()),
+    }]
+    for kênh, phần in lead_side.groupby("Kênh Tiếp Cận"):
+        dòng.append({
+            "phạm vi": kênh,
+            **_đếm(phần),
+            "doanh_thu_toàn_bộ": pd.NA,
+            "chi phí": int(chi_phi_kênh.get(kênh, 0)),
+        })
+
+    out = pd.DataFrame(dòng)
+    luôn = pd.Series(True, index=out.index)
+    có_chi_phí = out["chi phí"] > 0
+
+    out["tỷ_lệ_có_sđt_%"] = _chia(out["có_sđt"] * 100, out["lead"], luôn, 2)
+    out["tỷ_lệ_hẹn_%"] = _chia(out["có_hẹn"] * 100, out["lead"], luôn, 2)
+    out["tỷ_lệ_chốt_%"] = _chia(out["khách_mua"] * 100, out["lead"], luôn, 2)
+    out["CPL"] = _chia(out["chi phí"], out["lead"], có_chi_phí)
+    out["CAC"] = _chia(out["chi phí"], out["khách_mua"], có_chi_phí)
+    out["ROAS"] = _chia(out["doanh_thu_quy_kết"], out["chi phí"], có_chi_phí, 2)
+
+    out["CLV_TB"] = pd.NA
+    out["tỷ_lệ_quay_lại_%"] = pd.NA
+    if dim_khach is not None and not dim_khach.empty:
+        theo_kênh = dim_khach.groupby("Kênh Tiếp Cận")
+        clv = {KPI_TONG: dim_khach["tổng_doanh_thu"].mean(),
+               **theo_kênh["tổng_doanh_thu"].mean().to_dict()}
+        lại = {KPI_TONG: dim_khach["là_khách_quay_lại"].mean() * 100,
+               **(theo_kênh["là_khách_quay_lại"].mean() * 100).to_dict()}
+        out["CLV_TB"] = out["phạm vi"].map(clv).round(0)
+        out["tỷ_lệ_quay_lại_%"] = out["phạm vi"].map(lại).round(2)
+
+    # Funnel mồi không có cột kênh (dựng từ hóa đơn), nên chỉ điền ở dòng TỔNG.
+    # Hai chỉ số TÁCH RIÊNG, xem docstring build_funnel_moi: bán thêm tại quầy
+    # trong cùng lượt khách khác hẳn với khách tự quay lại hôm khác.
+    out["khách_mua_mồi"] = pd.NA
+    out["bán_chéo_cùng_ngày_%"] = pd.NA
+    out["upsell_90d_%"] = pd.NA
+    if funnel_moi is not None and not funnel_moi.empty:
+        là_tổng = out["phạm vi"] == KPI_TONG
+        out.loc[là_tổng, "khách_mua_mồi"] = len(funnel_moi)
+        out.loc[là_tổng, "bán_chéo_cùng_ngày_%"] = round(
+            funnel_moi["bán_chéo_cùng_ngày"].mean() * 100, 2)
+        out.loc[là_tổng, "upsell_90d_%"] = round(
+            funnel_moi["upsell_90d"].mean() * 100, 2)
+
+    # TỔNG luôn đứng đầu; các kênh xếp theo doanh thu giảm dần.
+    tổng = out[out["phạm vi"] == KPI_TONG]
+    kênh = out[out["phạm vi"] != KPI_TONG].sort_values("doanh_thu_quy_kết",
+                                                       ascending=False)
+    return pd.concat([tổng, kênh], ignore_index=True)[KPI_COLUMNS]
 
 
 def _chia(tu: pd.Series, mau: pd.Series, dieu_kien: pd.Series, ndigits: int = 0):

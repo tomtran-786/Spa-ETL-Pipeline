@@ -59,6 +59,19 @@ WINDOW_START = pd.Timestamp(os.environ.get("PXV_WINDOW_START", "2026-01-01"))
 DATE_VALID_LO = pd.Timestamp(os.environ.get("PXV_DATE_LO", "2025-01-01"))
 DATE_VALID_HI = pd.Timestamp(os.environ.get("PXV_DATE_HI", "2027-12-31"))
 
+# Ô NGÀY ĐỂ TRỐNG thì gán mốc này. Trước đây chúng thành NaT, mà `NaT >= mốc`
+# luôn False nên build_master lặng lẽ vứt đi 20 lead và không phép kiểm nào đếm.
+# Nghiệp vụ chốt (30/07/2026): thà tính vào ngày đầu kỳ còn hơn để mất khỏi phễu.
+# Chỉ áp cho ô TRỐNG — ô có nội dung mà không parse được vẫn là lỗi nhập liệu.
+LEAD_DATE_DEFAULT = pd.Timestamp(os.environ.get("PXV_LEAD_DATE_DEFAULT", "2026-01-01"))
+
+# Hóa đơn cũ hơn mốc này bị bỏ ngay từ lúc đọc. T11/2025 chỉ có trong file local,
+# tab INVOICES_RAW trên Sheets không có; giữ nó thì CLV/upsell của hai backend
+# lệch nhau (594 vs 461 khách) và bảng "con số bất biến" mất hết ý nghĩa.
+# Nạp lại được T11 vào Drive thì đổi mốc này về "2025-11-01".
+INVOICE_HISTORY_START = pd.Timestamp(
+    os.environ.get("PXV_INVOICE_HISTORY_START", "2026-01-01"))
+
 # --- Dịch vụ mồi/phễu ---
 # Quy tắc nghiệp vụ, thay đổi theo chiến dịch -> sẽ chuyển sang sheet DANH_MỤC.
 FUNNEL_SERVICE_PATTERN = r"GÓI TIẾT KIỆM|Xóa lần 01|CO2 Fractional"

@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 
 from . import config, schema
-from .clean import clean_money, clean_phone, parse_date_vn, phone_kind
+from .clean import (clean_money, clean_phone, parse_date_vn, parse_lead_dates,
+                    phone_kind)
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -70,7 +71,7 @@ def load_leads() -> pd.DataFrame:
             df[c] = pd.NA
     df["Phone_Clean"] = df["SỐ ĐT"].apply(clean_phone)
     df["Loại SĐT"] = df["SỐ ĐT"].apply(phone_kind)
-    df["Ngày Lead"] = df["NGÀY"].apply(parse_date_vn)
+    df["Ngày Lead"] = parse_lead_dates(df["NGÀY"], config.LEAD_DATE_DEFAULT)
     return df
 
 

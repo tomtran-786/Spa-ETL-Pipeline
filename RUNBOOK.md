@@ -201,7 +201,7 @@ Hiện đang tính 3 nhóm: `GÓI TIẾT KIỆM`, `Xóa lần 01`, `CO2 Fraction
 | **Có Đặt Lịch** | Bao nhiêu người đặt hẹn đến cửa hàng |
 | **Có Ra Đơn** | Bao nhiêu người thực sự mua |
 
-Số liệu kỳ T1–T2/2026: **2.364 → 1.274 → 303 → 186**, tỷ lệ chốt 7,87%.
+Số liệu kỳ T1–T2/2026: **2.380 → 1.274 → 303 → 186**, tỷ lệ chốt 7,82%.
 
 **Chỗ rớt nhiều nhất là bước SĐT → Đặt lịch** (chỉ 23,8% đi tiếp). Có số điện thoại rồi mà không hẹn được lịch — đây là chỗ đáng cải thiện nhất, không phải khâu chốt đơn (61,4% đã khá tốt).
 
@@ -228,8 +228,8 @@ Pipeline tính đúng nhưng Looker vẫn hiện sai được — nó gộp và 
 Cách sửa từng lỗi nằm ở **[docs/LOOKER.md](docs/LOOKER.md)**. Ba dấu hiệu cần biết:
 
 - **Biểu đồ theo thời gian trống từ ngày 3 đến 12 mỗi tháng** → ngày bị lật lúc import tab LEAD. Import lại, xem [Sales: nhập lead](#sales-nhập-lead).
-- **CLV và tỷ lệ upsell thấp bất thường** → kho hóa đơn thiếu lịch sử. Kiểm tab `INVOICES_RAW`: hóa đơn cũ nhất phải là 01/11/2025. Thiếu thì thả lại file KiotViet vào Drive.
-- **Thẻ ROAS / CAC cao bất thường** → Looker đang cộng các tỷ số lại với nhau.
+- **CLV và tỷ lệ upsell thấp hơn bạn nhớ** → đúng như vậy, hai thay đổi từ 30/07/2026. Một: pipeline chỉ tính hóa đơn từ 01/01/2026 trở đi (bỏ T11/2025). Hai: **bán chéo cùng ngày giờ tách khỏi upsell** — 19,2% khách mua thêm ngay tại quầy, còn 7,0% mới thật sự quay lại hôm khác. Số 17,3% cũ là hai thứ trộn lẫn.
+- **Thẻ ROAS / CAC cao bất thường** → Looker đang cộng các tỷ số lại với nhau. Mọi thẻ số phải lấy từ bảng `KPI`, lọc `phạm vi = "TỔNG"`.
 - **Chi phí quảng cáo hiện 145.920.000đ** → đó là số **mô phỏng** cho case study, không phải chi tiêu thật.
 
 ---

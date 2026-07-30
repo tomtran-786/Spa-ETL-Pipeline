@@ -49,6 +49,7 @@ def main(strict: bool = True) -> int:
     daily = marts.build_daily(master)
     funnel_daily = marts.build_funnel_daily(daily)
     hieu_qua = marts.build_hieu_qua_kenh(master, costs, dim_khach)
+    kpi = marts.build_kpi(master, costs, dim_khach, funnel_moi)
 
     print("Kiểm chất lượng...")
     report = quality.run_checks(df_lead, df_inv, master, costs, truoc)
@@ -61,6 +62,7 @@ def main(strict: bool = True) -> int:
         "FACT_DAILY": daily,
         "FUNNEL_DAILY": funnel_daily,
         "HIEU_QUA_KENH": hieu_qua,
+        "KPI": kpi,
         "DQ_STATUS": report.to_frame(),
         "CẦN_SỬA": report.cần_sửa,
     }
@@ -112,7 +114,9 @@ def _summary(master, dim_khach, funnel_moi) -> None:
               f"{dim_khach['là_khách_quay_lại'].mean() * 100:.1f}% quay lại)")
     if not funnel_moi.empty:
         up = funnel_moi["upsell_90d"].mean() * 100
-        print(f"Dịch vụ mồi : {len(funnel_moi):,} khách, {up:.1f}% upsell trong 90 ngày")
+        chéo = funnel_moi["bán_chéo_cùng_ngày"].mean() * 100
+        print(f"Dịch vụ mồi : {len(funnel_moi):,} khách — "
+              f"{chéo:.1f}% bán chéo cùng ngày, {up:.1f}% quay lại upsell 90 ngày")
 
 
 if __name__ == "__main__":

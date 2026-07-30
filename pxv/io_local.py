@@ -8,7 +8,8 @@ from __future__ import annotations
 import pandas as pd
 
 from . import ad_costs, config, schema
-from .clean import clean_money, clean_phone, parse_date_vn, phone_kind
+from .clean import (clean_money, clean_phone, parse_date_vn, parse_lead_dates,
+                    phone_kind)
 
 
 def load_leads(path=None) -> pd.DataFrame:
@@ -22,7 +23,7 @@ def load_leads(path=None) -> pd.DataFrame:
             df[c] = pd.NA
     df["Phone_Clean"] = df["SỐ ĐT"].apply(clean_phone)
     df["Loại SĐT"] = df["SỐ ĐT"].apply(phone_kind)
-    df["Ngày Lead"] = df["NGÀY"].apply(parse_date_vn)
+    df["Ngày Lead"] = parse_lead_dates(df["NGÀY"], config.LEAD_DATE_DEFAULT)
     return df
 
 
@@ -64,13 +65,25 @@ def load_invoices(path=None) -> pd.DataFrame:
     Cách xử: ``Doanh Thu (VNĐ)`` chỉ mang giá trị ở DÒNG ĐẦU của mỗi hóa đơn,
     các dòng sau = 0. Nhờ vậy SUM() luôn đúng mà vẫn giữ được chi tiết mặt hàng
     cho phân tích sản phẩm.
+
+    Hóa đơn cũ hơn ``config.INVOICE_HISTORY_START`` bị bỏ ngay tại đây, để bản
+    local và bản Sheets cùng một phạm vi — xem ghi chú ở hằng số đó.
+
+    ``Ngày HĐ`` bị CẮT PHẦN GIỜ. File Excel giữ nguyên ``10:51:07``, nhưng tab
+    INVOICES_RAW trên Sheets chỉ còn ngày — và chênh lệch đó từng làm tỷ lệ
+    upsell 90 ngày ra 17,3% ở local so với 7,0% trên Sheets, cùng một bộ hóa
+    đơn. Nguyên nhân: khách mua thêm dịch vụ chính trong cùng ngày thì chỉ được
+    tính khi giờ mua sau giờ mua mồi — tức kết quả phụ thuộc thứ tự bấm máy
+    tính tiền. Cắt giờ ở đây để hai backend giống nhau từ gốc.
     """
     df = pd.read_excel(path or config.F_INV, sheet_name=0)
     schema.validate_headers(df, schema.INVOICE_REQUIRED, "hóa đơn")
 
     df["Phone_Clean"] = df["Điện thoại"].apply(clean_phone)
-    df["Ngày HĐ"] = pd.to_datetime(df["Thời gian"], errors="coerce", dayfirst=True)
+    df["Ngày HĐ"] = pd.to_datetime(df["Thời gian"], errors="coerce",
+                                   dayfirst=True).dt.normalize()
     df["_tổng_hóa_đơn"] = df["Khách cần trả"].apply(clean_money)
+    df = df[df["Ngày HĐ"] >= config.INVOICE_HISTORY_START]
 
     df = df.sort_values(["Mã hóa đơn", "Mã hàng"], na_position="last").reset_index(drop=True)
     is_first_line = ~df.duplicated("Mã hóa đơn", keep="first")

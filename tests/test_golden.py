@@ -21,7 +21,12 @@ pytestmark = pytest.mark.skipif(
 SAI_LECH_CO_CHU_DICH = {
     "lead_ngoài_cửa_sổ": 35,   # bỏ quy tắc ép năm 2025->2026
     "lead_sđt_rác": 8,         # SĐT là ghi chú hoặc số quá ngắn
+    # Ô NGÀY để trống giờ được gán config.LEAD_DATE_DEFAULT thay vì bị vứt.
+    # 20 dòng trống, nhưng 4 dòng có SĐT trùng khách đã có nên bị gộp -> +16.
+    "lead_thiếu_ngày_được_gán": 16,
 }
+LEAD_GIAM_KY_VONG = (SAI_LECH_CO_CHU_DICH["lead_ngoài_cửa_sổ"]
+                     - SAI_LECH_CO_CHU_DICH["lead_thiếu_ngày_được_gán"])
 
 
 @pytest.fixture(scope="module")
@@ -52,10 +57,12 @@ def test_so_hoa_don_khong_doi(new_master, golden):
 
 def test_lead_giam_dung_bang_so_dong_da_giai_thich(new_master, golden):
     giảm = int(golden["[F] 1_Có Inbox"].sum()) - int(new_master["[F] 1_Có Inbox"].sum())
-    assert giảm == SAI_LECH_CO_CHU_DICH["lead_ngoài_cửa_sổ"], (
-        f"Lead giảm {giảm}, kỳ vọng {SAI_LECH_CO_CHU_DICH['lead_ngoài_cửa_sổ']} "
-        "(35 dòng ghi 19/01/2025, trước đây bị ép thành 2026). "
-        "Lệch số này nghĩa là có thay đổi ngoài dự kiến."
+    assert giảm == LEAD_GIAM_KY_VONG, (
+        f"Lead giảm {giảm}, kỳ vọng {LEAD_GIAM_KY_VONG} = "
+        f"{SAI_LECH_CO_CHU_DICH['lead_ngoài_cửa_sổ']} dòng ghi 19/01/2025 (trước "
+        f"đây bị ép thành 2026) trừ đi "
+        f"{SAI_LECH_CO_CHU_DICH['lead_thiếu_ngày_được_gán']} lead thiếu ngày nay "
+        "được gán về đầu kỳ. Lệch số này nghĩa là có thay đổi ngoài dự kiến."
     )
 
 

@@ -138,6 +138,24 @@ def out_of_window_mask(series: pd.Series, lo: pd.Timestamp, hi: pd.Timestamp) ->
     return series.notna() & ((series < lo) | (series > hi))
 
 
+def parse_lead_dates(ngay: pd.Series, mac_dinh) -> pd.Series:
+    """Cột ``Ngày Lead`` cho cả hai backend. Ô ĐỂ TRỐNG được gán ``mac_dinh``.
+
+    Trước đây ô trống thành ``NaT``, mà ``NaT >= window_start`` luôn False nên
+    ``build_master`` vứt luôn 20 lead — không bảng nào hiện, không phép kiểm nào
+    đếm. Nghiệp vụ chốt gán về đầu kỳ để chúng vẫn nằm trong phễu.
+
+    CHỈ ô trống mới được gán. Ô có nội dung mà không parse được vẫn trả ``NaT``:
+    đó là lỗi nhập liệu thật, gán mặc định lên nó vừa bóp méo số vừa giết mất
+    phép kiểm "Ngày không đọc được".
+
+    Nhận ``mac_dinh`` qua tham số thay vì đọc ``config`` để module này giữ nguyên
+    tính chất hàm thuần — dễ test, và không tạo import vòng.
+    """
+    ô_trống = ngay.isna() | (ngay.astype(str).str.strip() == "")
+    return ngay.apply(parse_date_vn).where(~ô_trống, mac_dinh)
+
+
 def normalize_text(value) -> str:
     """Chuẩn hóa chuỗi phân loại để so khớp: bỏ khoảng trắng thừa, viết hoa."""
     if pd.isna(value):

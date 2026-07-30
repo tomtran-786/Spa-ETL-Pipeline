@@ -17,6 +17,24 @@ vm.createContext(context);
 vm.runInContext(source, context, { filename: 'SalesCore.gs' });
 const core = context.module.exports;
 
+test('SalesEntry nạp trước SalesCore không lỗi do thứ tự file Apps Script', () => {
+  const loadContext = {
+    module: { exports: {} },
+    exports: {},
+    console,
+  };
+  vm.createContext(loadContext);
+  const entrySource = fs.readFileSync(
+    path.join(__dirname, '..', 'apps_script', 'SalesEntry.gs'),
+    'utf8',
+  );
+  assert.doesNotThrow(() => {
+    vm.runInContext(entrySource, loadContext, { filename: 'SalesEntry.gs' });
+    vm.runInContext(source, loadContext, { filename: 'SalesCore.gs' });
+  });
+  assert.equal(loadContext.module.exports.SALES_META.LEAD_ID, '_LEAD_ID');
+});
+
 const catalog = {
   'NGUỒN': ['Fanpage PXV'],
   'NHÓM SP': ['DỊCH VỤ'],

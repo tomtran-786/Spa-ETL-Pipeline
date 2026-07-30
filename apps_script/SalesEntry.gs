@@ -21,22 +21,22 @@ const SALES_FORM_SUBMIT_CELL = 'B23';
 const SALES_FORM_RESULT_CELL = 'B25';
 
 const SALES_TODAY_HEADERS = [
-  SALES_META.STATUS,
-  SALES_META.ERROR,
-  SALES_META.LEAD_ID,
+  '_STATUS',
+  '_ERROR',
+  '_LEAD_ID',
   'TÊN KHÁCH HÀNG',
   'SỐ ĐT',
   'TRẠNG THÁI',
   'NGÀY HẸN',
   'GIỜ HẸN',
-  SALES_META.UPDATED_AT,
+  '_UPDATED_AT',
 ];
 
 const SALES_HISTORY_HEADERS = [
   'thời điểm',
-  SALES_META.LEAD_ID,
-  SALES_META.REVISION,
-  SALES_META.BATCH_ID,
+  '_LEAD_ID',
+  '_REVISION',
+  '_BATCH_ID',
   'hành động',
   'trường thay đổi',
   'kết quả',

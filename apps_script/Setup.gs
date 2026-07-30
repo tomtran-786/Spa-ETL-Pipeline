@@ -29,11 +29,12 @@
  * 6. (Không bắt buộc) Để nút "Chạy lại pipeline" hoạt động:
  *    a. Vào github.com > Settings > Developer settings >
  *       Personal access tokens > Fine-grained tokens > Generate new token
- *    b. Repository access: chọn đúng repo Phun-Xam-Vic---Data-Analysis
+ *    b. Repository access: chọn đúng repo GitHub hiện tại của pipeline
  *    c. Permissions > Repository permissions > Contents: Read and write
  *    d. Copy token
  *    e. Về Apps Script > Project Settings (bánh răng) > Script Properties >
  *       Add script property: tên GITHUB_TOKEN, giá trị là token vừa copy
+ *    f. Thêm script property GITHUB_REPO, giá trị là tên repo GitHub hiện tại
  *    KHÔNG dán token vào Config.gs — file đó ai xem script cũng đọc được.
  *
  * 7. Đóng và mở lại Google Sheet — menu "🔄 PXV" sẽ hiện trên thanh công cụ.

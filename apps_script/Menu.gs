@@ -48,8 +48,16 @@ function chayLaiPipeline() {
     return;
   }
 
-  const url = 'https://api.github.com/repos/' + CONFIG.GITHUB_OWNER + '/' +
-    CONFIG.GITHUB_REPO + '/dispatches';
+  let owner;
+  let repo;
+  try {
+    owner = _githubOwner();
+    repo = _githubRepo();
+  } catch (err) {
+    ui.alert('Cấu hình chưa xong', err.message, ui.ButtonSet.OK);
+    return;
+  }
+  const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/dispatches';
   const res = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
@@ -61,8 +69,7 @@ function chayLaiPipeline() {
   if (res.getResponseCode() === 204) {
     ui.alert('Đã gửi yêu cầu',
       'Pipeline đang chạy. Khoảng 2-3 phút nữa dashboard sẽ có số mới.\n\n' +
-      'Xem tiến trình: github.com/' + CONFIG.GITHUB_OWNER + '/' +
-      CONFIG.GITHUB_REPO + '/actions', ui.ButtonSet.OK);
+      'Xem tiến trình: github.com/' + owner + '/' + repo + '/actions', ui.ButtonSet.OK);
   } else {
     ui.alert('Không gửi được',
       'GitHub trả về mã ' + res.getResponseCode() + '.\n\n' +

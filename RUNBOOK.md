@@ -1,4 +1,4 @@
-# Sổ tay vận hành — Pipeline Phun Xăm Vic
+# Sổ tay vận hành — Pipeline Spa này
 
 Tài liệu này dành cho **người không làm kỹ thuật**. Mỗi tình huống có tối đa 5 bước.
 
@@ -80,8 +80,8 @@ Dấu hiệu: băng trên đầu dashboard ghi ngày cũ, hoặc nhận email `�
 1. Mở Google Sheet nhập liệu → menu **🔄 PXV** → **Chạy lại pipeline ngay**
 2. Đợi 2–3 phút, mở lại dashboard xem đã cập nhật chưa
 3. Nếu hiện thông báo lỗi về token → xem mục [Khi nào cần gọi người kỹ thuật](#khi-nào-cần-gọi-người-kỹ-thuật)
-4. Nếu không có gì xảy ra, mở link này xem có dòng nào màu đỏ không:
-   `github.com/tomtran-786/Phun-Xam-Vic---Data-Analysis/actions`
+4. Nếu không có gì xảy ra, mở trang **Actions** của repo GitHub pipeline xem có
+   dòng nào màu đỏ không
 5. Nếu thấy chữ **"This workflow was disabled"** → bấm nút **Enable workflow**
 
 > **Vì sao lịch chạy tự tắt?** GitHub tự động tắt sau 60 ngày nếu không ai thay đổi gì trong repo. Hệ thống đã có 3 lớp chống việc này, nhưng nếu vẫn xảy ra thì bước 5 là cách xử.

@@ -311,6 +311,6 @@ function _guiMail(tieuDe, noiDung) {
   MailApp.sendEmail({
     to: _alertEmails().join(','),
     subject: '[PXV] ' + tieuDe,
-    body: noiDung + '\n\n--\nTin nhắn tự động từ pipeline Phun Xăm Vic.',
+    body: noiDung + '\n\n--\nTin nhắn tự động từ pipeline Spa này.',
   });
 }

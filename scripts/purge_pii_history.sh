@@ -30,7 +30,7 @@ PII_PATHS=(
   "BÁO CÁO TỔNG HỢP SALE - MARKETING.xlsx"
   "Doanh thu T11.2025 đến 25.02.xlsx"
   "Data_Dashboard_FINAL_PIPELINE.xlsx"
-  "Demo - Phun Xam Vic pipeline.xlsx"
+  "Demo - Spa này pipeline.xlsx"
   "output/"
 )
 
@@ -134,7 +134,7 @@ echo "  1. Kiểm tra lịch sử đã sạch:"
 echo "       git log --all --name-only --pretty=format: | sort -u | head -30"
 echo
 echo "  2. Gắn lại remote:"
-echo "       git remote add origin https://github.com/tomtran-786/Phun-Xam-Vic---Data-Analysis.git"
+echo "       git remote add origin <URL repo GitHub hiện tại>"
 echo
 echo "  3. Ghi đè lịch sử trên GitHub:"
 echo "       git push origin main --force"

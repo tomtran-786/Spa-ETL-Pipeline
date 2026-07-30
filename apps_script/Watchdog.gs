@@ -33,13 +33,18 @@ function canhChung() {
 
   const soGio = (new Date() - chayLuc) / 3600000;
   if (soGio > CONFIG.PIPELINE_TRE_QUA_GIO) {
+    let actions = 'trang Actions của repo GitHub pipeline';
+    try {
+      actions = 'https://github.com/' + _githubOwner() + '/' + _githubRepo() + '/actions';
+    } catch (err) {
+      actions = 'trang Actions của repo GitHub pipeline';
+    }
     _guiMail('🔴 PIPELINE CHƯA CHẠY ' + Math.floor(soGio / 24) + ' NGÀY',
       'Lần chạy gần nhất: ' + Utilities.formatDate(
         chayLuc, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') +
       ' (' + Math.floor(soGio) + ' giờ trước).\n\n' +
       'Số trên dashboard đang là số CŨ. Việc cần làm:\n' +
-      '1. Mở https://github.com/' + CONFIG.GITHUB_OWNER + '/' + CONFIG.GITHUB_REPO +
-      '/actions xem job có bị tắt không.\n' +
+      '1. Mở ' + actions + ' xem job có bị tắt không.\n' +
       '   (GitHub tự tắt lịch chạy sau 60 ngày repo không có thay đổi — nếu vậy ' +
       'bấm "Enable workflow".)\n' +
       '2. Hoặc mở Google Sheet nhập liệu, menu "🔄 PXV" > "Chạy lại pipeline ngay".\n' +

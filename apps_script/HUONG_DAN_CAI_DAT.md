@@ -186,12 +186,15 @@ Bỏ tick "Notify people" — service account không đọc email.
 Để nút **🔄 PXV → Chạy lại pipeline ngay** hoạt động:
 
 1. [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens) → **Generate new token**
-2. **Repository access** → Only select repositories → chọn `Phun-Xam-Vic---Data-Analysis`
+2. **Repository access** → Only select repositories → chọn repo GitHub hiện tại của pipeline
 3. **Permissions** → Repository permissions → **Contents: Read and write**
 4. Generate → copy token
 5. Về Apps Script → ⚙️ **Project Settings** → **Script Properties** → **Add script property**
    - Property: `GITHUB_TOKEN`
    - Value: token vừa copy
+6. Thêm tiếp script property:
+   - Property: `GITHUB_REPO`
+   - Value: tên repo GitHub hiện tại của pipeline
 
 > **Đừng dán token vào `Config.gs`.** Ai xem được script là đọc được, và file đó nằm trong repo.
 

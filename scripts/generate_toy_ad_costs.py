@@ -1,7 +1,7 @@
 """Sinh chi phí quảng cáo MÔ PHỎNG cho case study, tuyệt đối không dùng vận hành.
 
 Dữ liệu đầu vào là số lead thật đã tổng hợp theo (tháng, kênh); đầu ra không
-chứa PII. Chi phí là giả định minh bạch, không phải chi phí marketing của Vic.
+chứa PII. Chi phí là giả định minh bạch, không phải chi phí marketing của Spa này.
 
 Chạy sau ``python -m pxv.run_daily``:
 

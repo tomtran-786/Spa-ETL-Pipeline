@@ -25,7 +25,7 @@ const CONFIG = {
 
   // --- GitHub (để nút "Chạy lại pipeline" hoạt động) ---
   GITHUB_OWNER: 'tomtran-786',
-  GITHUB_REPO: 'Phun-Xam-Vic---Data-Analysis',
+  GITHUB_REPO: 'DÁN_TÊN_REPO_GITHUB_VÀO_SCRIPT_PROPERTIES',
 
   // --- Tên sheet ---
   SHEET_LEAD: 'LEAD',
@@ -95,6 +95,22 @@ function _id(ten) {
   if (p) return p;
   throw new Error('Chưa có ' + ten + '. Chạy dungHeThong() trong Bootstrap.gs, ' +
     'hoặc điền tay vào Config.gs.');
+}
+
+function _githubConfig(ten) {
+  const v = CONFIG[ten];
+  if (v && v.indexOf('DÁN_') !== 0) return v;
+  const p = PropertiesService.getScriptProperties().getProperty(ten);
+  if (p) return p;
+  throw new Error('Chưa có ' + ten + '. Điền trong Script Properties.');
+}
+
+function _githubOwner() {
+  return _githubConfig('GITHUB_OWNER');
+}
+
+function _githubRepo() {
+  return _githubConfig('GITHUB_REPO');
 }
 
 function _guardConfig() {

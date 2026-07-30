@@ -3,6 +3,8 @@
 ETL pipeline hợp nhất dữ liệu sales, lịch hẹn, KiotViet và quảng cáo để đo phễu
 chuyển đổi, doanh thu, hiệu quả kênh, CLV và hành vi quay lại.
 
+Dashboard vận hành: [PXV — Looker Studio](https://datastudio.google.com/u/0/reporting/19939443-e921-49d9-948d-03b4d663c5da/page/jQvqF).
+
 ## 1. Bối cảnh vấn đề
 
 Dữ liệu khách hàng đang nằm rời rạc:
@@ -56,6 +58,45 @@ Google Sheets + Google Drive
 
 Metric được tính ở đúng grain trong pipeline, không để BI tool tự cộng lại
 ROAS, CAC, CLV hoặc tỷ lệ upsell.
+
+### PXV Sales Entry — nhập lead và follow-up nhiều ngày
+
+Mỗi sale làm việc trong một spreadsheet riêng do quản lý sở hữu. File có bốn
+giao diện chính:
+
+| Tab | Mục đích |
+|---|---|
+| `NHẬP_MỚI` | Form tạo lead mới và lưu nháp |
+| `ĐANG_THEO_DÕI` | Tìm và cập nhật lead đã nộp |
+| `HÔM_NAY` | Draft, revision và lỗi cần xử lý trong ngày |
+| `LỊCH_SỬ` | Batch, revision và kết quả đồng bộ |
+
+Một lead giữ nguyên `_LEAD_ID` trong toàn bộ vòng đời tư vấn. Ví dụ:
+
+```text
+30/07: khách chưa chốt hẹn → Submit revision 1 → append vào LEAD
+31/07: khách chốt hẹn      → Submit revision 2 → update đúng dòng cũ
+```
+
+`NGÀY` inbox không đổi, vì vậy follow-up không tạo thêm inbox và không làm phồng
+funnel. Trigger quản lý quét mỗi 5 phút, chỉ append khi `_LEAD_ID` chưa tồn tại
+và chỉ update khi revision mới hơn.
+
+Các lớp bảo vệ dữ liệu:
+
+- Chuẩn hóa SĐT giống pipeline Python; giữ số quốc tế và loại giá trị `"0"`.
+- Ngày mới dùng ISO `YYYY-MM-DD`, giờ dùng `HH:mm`.
+- Có lịch hẹn thì bắt buộc SĐT, ngày và giờ; ngày hẹn không trước ngày inbox.
+- Duplicate `SĐT + NGÀY` cần `LÝ DO TRÙNG` mới được tiếp tục.
+- Checksum phát hiện quản lý đã sửa dòng trung tâm; revision chuyển `CONFLICT`
+  thay vì tự ghi đè.
+- Mỗi dòng được xử lý độc lập: một dòng lỗi không chặn phần còn lại của batch.
+- Ghi `LEAD` bằng Sheets API `RAW` để không mất số 0 hoặc lật ngày/tháng.
+
+Phía quản lý có `DANH_MỤC_SALES`, `SALES_INGEST_LOG` và `SALES_LỖI`. Sale chỉ
+được share file riêng, không có quyền vào `PXV_NHẬP_LIỆU`. Cách cài đặt, pilot
+và verification checklist nằm trong
+[`apps_script/HUONG_DAN_CAI_DAT.md`](apps_script/HUONG_DAN_CAI_DAT.md).
 
 ## 3. Kết quả và insights
 
@@ -233,11 +274,31 @@ Tài liệu setup:
 - [Vận hành hằng ngày](RUNBOOK.md)
 - [Cấu hình Looker Studio](docs/LOOKER.md)
 
-Test hiện tại: **153 passed** khi có golden workbook local. Khi thiếu
-`output/Master_Pipeline_2026.xlsx`, 7 golden tests tự skip vì file chứa PII và
+Test hiện tại: **154 Python tests** và **12 Sales Entry tests**. Khi thiếu
+`output/Master_Pipeline_2026.xlsx`, golden tests tự skip vì file chứa PII và
 không nằm trong git.
 
-## 7. Định hướng phát triển và scale-up
+## 7. Guardrails phát triển
+
+Các quy tắc này bảo vệ những lỗi dữ liệu từng xảy ra trong vận hành:
+
+- Sau mọi thay đổi trong `pxv/`, chạy pipeline và giữ ba mốc nền:
+  `2.552.689.000đ`, `710` hóa đơn và funnel `2380 → 1274 → 303 → 186`.
+- `clean_phone("0")` phải trả `None`; số quốc tế phải được giữ dạng `+...`.
+- Hóa đơn thiếu SĐT vẫn tính doanh thu và không được deduplicate chung qua
+  khóa `NaN`.
+- `Khách cần trả` là tổng hóa đơn lặp trên từng dòng hàng; chỉ cộng một lần cho
+  mỗi mã hóa đơn.
+- Mọi ngày ghi sang Sheets phải là ISO và mọi giá trị được ghi bằng `RAW`.
+- Không sửa một phía của chuẩn hóa SĐT: Python và Apps Script phải luôn khớp.
+- Không commit CSV/XLSX/output hoặc dữ liệu khách thật. Fixtures và test chỉ dùng
+  dữ liệu tổng hợp.
+- T12/2025 là khoảng trống dữ liệu đã biết, không được biểu diễn thành doanh thu
+  bằng 0.
+- CLV và funnel dịch vụ mồi phải tính ở pipeline theo grain khách, không tính
+  lại bằng `AVG` trên bảng `MASTER`.
+
+## 8. Định hướng phát triển và scale-up
 
 ### Giai đoạn 1 — Hoàn thiện dữ liệu vận hành
 

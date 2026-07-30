@@ -4,7 +4,7 @@ Pipeline tính sẵn mọi con số rồi mới đẩy sang Looker. Vì thế ph
 dashboard **không nằm ở dữ liệu** mà ở cách Looker gộp và lọc lại số đã tính.
 
 File này ghi lại những chỗ đã sai thật, kèm cách làm đúng. Đọc kèm
-[AGENTS.md](../AGENTS.md) (bẫy dữ liệu) và [README.md](../README.md) (kiến trúc).
+[README.md](../README.md) (kiến trúc, guardrails và các bẫy dữ liệu).
 
 > **Trạng thái 30/07/2026 — bản kiểm LẦN 2** (ảnh chụp 3 trang dashboard, đối
 > chiếu với `output/PXV_DASHBOARD_DATA.xlsx`, không suy đoán từ ảnh):
@@ -727,6 +727,6 @@ chart đó đang lấy sai nguồn hoặc bị lọc sai:
 | Cộng cột `Khách mua mồi` trong bảng dịch vụ mồi | **214** |
 | Chart CLV theo kênh, cột cao nhất | **Khách cũ, 6.428.000đ** |
 
-Ba con số đầu là **bất biến của pipeline** (xem [AGENTS.md](../AGENTS.md)) — sai
+Ba con số đầu là **bất biến của pipeline** (xem [README.md](../README.md)) — sai
 là hoặc dashboard lấy sai nguồn, hoặc pipeline đã vỡ. Ba con số sau phụ thuộc
 `config.INVOICE_HISTORY_START`; đổi mốc đó thì cập nhật lại bảng này.

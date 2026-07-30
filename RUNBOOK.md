@@ -1,4 +1,4 @@
-# Sổ tay vận hành — Pipeline Phun Xăm Vic
+# Sổ tay vận hành — Pipeline Spa (Sales&Marketing)
 
 Tài liệu này dành cho **người không làm kỹ thuật**. Mỗi tình huống có tối đa 5 bước.
 

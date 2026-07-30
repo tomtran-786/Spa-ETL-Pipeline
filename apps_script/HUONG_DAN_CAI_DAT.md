@@ -254,14 +254,58 @@ Sự cố khi đã vận hành: xem [RUNBOOK.md](../RUNBOOK.md).
 
 ---
 
-## Kiểm tra cuối
+## Next-step checklist — triển khai live
 
-- [ ] Thư mục `Drive/PXV/` có 3 spreadsheet + `Sales_Entry`
-- [ ] `PXV_NHẬP_LIỆU` có `DANH_MỤC_SALES`, `SALES_INGEST_LOG`, `SALES_LỖI`
-- [ ] Cuối `LEAD` có 5 cột metadata `_LEAD_ID`... và các cột này đang ẩn
-- [ ] Cột `SỐ ĐT` ở tab `LEAD` định dạng text — gõ thử `0390000001`, số 0 đầu **không** bị mất
-- [ ] Gõ thử một dòng: cột `NGÀY` tự điền ngày hôm nay
-- [ ] Chọn `TRẠNG THÁI` = "Đặt hẹn" khi chưa nhập SĐT → bị chặn kèm thông báo đỏ
-- [ ] Gõ `instgram` vào cột `NGUỒN` → tự sửa thành `Instagram`
-- [ ] Menu 🔄 PXV → Kiểm tra cấu hình: toàn ✅ (trừ `GITHUB_TOKEN` nếu bỏ qua Bước 10)
-- [ ] Apps Script → Triggers: ít nhất 5 trigger + `onSaleEdit` cho file pilot
+- [ ] Kết nối repo với project Apps Script thật bằng `clasp`, hoặc chép đủ 11
+      file `.gs` theo đúng thứ tự trong hướng dẫn này.
+- [ ] Bật **Drive API** và **Google Sheets API** trong Apps Script.
+- [ ] Chạy `dungHeThongSales()` bằng tài khoản quản lý; xác nhận script tạo
+      `Sales_Entry`, ba tab quản trị và backup `DM_BACKUP_...` nếu phải migrate.
+- [ ] Rà lại `DANH_MỤC`: tên sale, Gmail, `NGUỒN`, `NHÓM SP`, `CHATPAGE`,
+      `LOẠI TIN NHẮN` và lý do thiếu SĐT đều là dữ liệu thật.
+- [ ] Điền Gmail pilot của Trường Khang vào `DANH_MỤC_SALES`.
+- [ ] Chạy **Sales Entry → Tạo file cho sale** và chỉ share
+      `PXV_SALES_Trường Khang`; không share file quản lý.
+- [ ] Kiểm tra trigger `onSaleEdit` của file pilot và trigger
+      `napLeadTuSales` mỗi 5 phút.
+- [ ] Pilot đủ hai ngày với ít nhất: một lead chưa hẹn, một lead bổ sung SĐT,
+      một duplicate có lý do và một dòng validation lỗi.
+- [ ] Quản lý và Trường Khang ký xác nhận số lead, revision và quyền truy cập
+      trước khi tạo file cho sale tiếp theo.
+- [ ] Rollout từng sale; theo dõi `SALES_LỖI` và `SALES_INGEST_LOG` hằng ngày
+      trong tuần đầu.
+
+## Verification checklist — điều kiện go-live
+
+- [ ] Thư mục `Drive/PXV/` có ba spreadsheet hiện tại và thư mục `Sales_Entry`.
+- [ ] `PXV_NHẬP_LIỆU` có `DANH_MỤC_SALES`, `SALES_INGEST_LOG`, `SALES_LỖI`.
+- [ ] Cuối `LEAD` có đúng `_LEAD_ID`, `_REVISION`, `_BATCH_ID`,
+      `_SUBMITTED_AT`, `_SOURCE_SALE_ID`; năm cột đang ẩn và được bảo vệ.
+- [ ] File sale có đủ `NHẬP_MỚI`, `ĐANG_THEO_DÕI`, `HÔM_NAY`, `LỊCH_SỬ`;
+      sale không mở được file quản lý.
+- [ ] Cột SĐT giữ số 0 đầu; số VN, quốc tế và `"0"` cho kết quả chuẩn hóa đúng.
+- [ ] Ngày đầu chưa hẹn tạo revision 1; ngày sau bổ sung lịch tạo revision 2
+      trên cùng `_LEAD_ID`, giữ nguyên `NGÀY`, và `LEAD` vẫn chỉ có một dòng.
+- [ ] Bổ sung SĐT sau khi từng chọn lý do thiếu SĐT hoạt động; lý do cũ phải
+      được xóa trước khi Submit.
+- [ ] Có lịch hoặc trạng thái hẹn nhưng thiếu SĐT/ngày/giờ bị chặn; ngày hẹn
+      trước ngày inbox và ngày không phải ISO cũng bị chặn.
+- [ ] Duplicate `SĐT + NGÀY` không có `LÝ DO TRÙNG` bị chặn; có lý do thì nhập
+      được và lý do xuất hiện trong `SALES_INGEST_LOG`.
+- [ ] Chạy ingest lại cùng revision không tạo dòng mới và ghi
+      `IGNORED_IDEMPOTENT`.
+- [ ] Một batch có dòng lỗi vẫn nhập các dòng hợp lệ; lỗi nằm trong
+      `SALES_LỖI` và chuyển `RESOLVED` sau khi sửa thành công.
+- [ ] Sửa thủ công LEAD trung tâm rồi Submit revision mới tạo `CONFLICT`, không
+      ghi đè; cả hai lựa chọn giải quyết conflict đều được ghi lịch sử.
+- [ ] Đóng theo dõi ẩn lead khỏi danh sách; quản lý mở lại được và revision sau
+      đó vẫn cập nhật cùng dòng trung tâm.
+- [ ] Menu **🔄 PXV → Kiểm tra cấu hình** toàn ✅, trừ `GITHUB_TOKEN` nếu không
+      dùng nút chạy pipeline.
+- [ ] Apps Script → Triggers có ít nhất năm trigger lịch và một `onSaleEdit`
+      cho mỗi file sale active; không có execution lỗi chưa xử lý.
+- [ ] Chạy lại `python -m pytest tests/ -q` và `node --test
+      tests_js/*.test.cjs`: tất cả test đạt.
+- [ ] Chạy pipeline sau pilot: doanh thu `2.552.689.000đ`, `710` hóa đơn và
+      funnel nền `2380 → 1274 → 303 → 186`, cộng đúng số bước mới phát sinh từ
+      lead pilot; không tăng inbox khi chỉ follow-up revision.

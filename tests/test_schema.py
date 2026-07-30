@@ -47,3 +47,12 @@ def test_validate_headers_chan_khi_thieu_cot():
     with pytest.raises(schema.SchemaError, match="thiếu cột"):
         schema.validate_headers(pd.DataFrame({"NGÀY": []}),
                                 schema.LEAD_REQUIRED, "lead")
+
+
+def test_lead_cho_phep_metadata_revision_sales_entry():
+    """Metadata audit ở cuối LEAD không được làm pipeline từ chối nguồn."""
+    data = {column: [None] for column in schema.LEAD_REQUIRED}
+    data.update({column: ["test"] for column in schema.LEAD_AUDIT_OPTIONAL})
+    df = pd.DataFrame(data)
+
+    schema.validate_headers(df, schema.LEAD_REQUIRED, "lead sales entry")

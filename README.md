@@ -33,13 +33,15 @@ Solution gồm hai phần:
 - **Python/pandas pipeline** làm sạch, join, tính metric, kiểm chất lượng và xuất
   các data mart cho Looker Studio.
 - **Apps Script** nạp file từ Drive, kiểm tra dữ liệu ngay trên Google Sheets,
-  cung cấp menu vận hành và watchdog theo dõi pipeline.
+  cung cấp file nhập riêng cho từng sale, đồng bộ revision có audit, menu vận
+  hành và watchdog theo dõi pipeline.
 
 ```text
 Google Sheets + Google Drive
              │
              ▼
-      Apps Script ingest
+ File riêng sale → Apps Script ingest
+      LEAD_ID + revision
              │
              ▼
  PXV_KHO: invoice / Pancake
@@ -104,6 +106,9 @@ Apps Script kiểm và nạp dữ liệu Drive:
 - [KiotViet ingest](apps_script/IngestKiotViet.gs)
 - [Pancake ingest](apps_script/IngestPancake.gs)
 - [Validation khi nhập liệu](apps_script/OnEdit.gs)
+- [Sales Entry core](apps_script/SalesCore.gs)
+- [Form/follow-up file sale](apps_script/SalesEntry.gs)
+- [Registry và ingest revision](apps_script/SalesIngest.gs)
 - [Watchdog](apps_script/Watchdog.gs)
 
 ### Transform
@@ -151,7 +156,10 @@ Schema bắt buộc và danh sách cột cố định nằm tại
 
 | Bảng | Grain | Cột chính |
 |---|---|---|
-| `LEAD` | Một lần khách inbox | `NGÀY`, `TÊN KHÁCH HÀNG`, `SỐ ĐT`, `NGUỒN`, `CHATPAGE`, `QUAN TÂM`, `TRẠNG THÁI`, `NGÀY HẸN` |
+| `LEAD` | Một lần khách inbox | Cột nghiệp vụ hiện có + `_LEAD_ID`, `_REVISION`, `_BATCH_ID`, `_SUBMITTED_AT`, `_SOURCE_SALE_ID` |
+| `DANH_MỤC_SALES` | Một sale/file | Gmail, file ID, active và lần đồng bộ |
+| `SALES_INGEST_LOG` | Một revision | Before/after, checksum và dòng đích |
+| `SALES_LỖI` | Một lỗi ingest | Validation hoặc conflict cần quản lý xử lý |
 | `INVOICES_RAW` | Một dòng mặt hàng | `Mã hóa đơn`, `Thời gian`, `Điện thoại`, `Khách cần trả`, `Mã hàng`, `Tên hàng` |
 | `CHI_PHÍ_QC` | Tháng × kênh × bài QC | `tháng`, `kênh`, `mã bài QC`, `chi phí` |
 | `PANCAKE_RAW` | Một hội thoại có SĐT | `SĐT`, `Tên khách`, `Page`, `Ngày` |
@@ -184,6 +192,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m pytest tests/ -q
+node --test tests_js/*.test.cjs
 python -m pxv.run_daily
 ```
 

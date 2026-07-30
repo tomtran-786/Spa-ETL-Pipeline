@@ -11,16 +11,18 @@
  * 2. Dán từng file .gs trong thư mục apps_script/ vào project
  *    (bấm + > Script, đặt tên đúng như tên file, rồi dán nội dung)
  *
- * 3. Bật Advanced Drive Service (để đọc được file Excel của Pancake):
- *    Menu trái > Services (+) > chọn "Drive API" > Add
+ * 3. Bật hai Advanced Services:
+ *    - Drive API: đọc file Excel của Pancake
+ *    - Google Sheets API: ghi lead bằng valueInputOption=RAW
+ *    Menu trái > Services (+) > chọn từng API > Add
  *
  * 4. Chạy hàm dungHeThong() ở Bootstrap.gs
  *    Lần đầu Google sẽ hỏi cấp quyền — bấm Review permissions > Advanced >
  *    Go to ... (unsafe) > Allow. Đây là script của chính bạn nên an toàn.
  *    Script tự tạo 2 spreadsheet còn lại, 2 thư mục Drive, toàn bộ tab,
- *    dropdown và định dạng. Xem View > Logs để lấy 4 ID.
+ *    dropdown và định dạng. Xem View > Logs để lấy các ID.
  *
- * 5. Chép 4 ID từ Logs vào Config.gs, rồi chạy taoTrigger() ở file này.
+ * 5. Chép các ID từ Logs vào Config.gs, rồi chạy taoTrigger() ở file này.
  *    (Bỏ qua bước chép cũng chạy được — dungHeThong() đã lưu ID vào Script
  *    Properties — nhưng nên điền để người sau đọc code là biết.)
  *
@@ -45,6 +47,9 @@
 function taoTrigger() {
   _guardConfig();
   _xoaTriggerCu();
+  const manager = SpreadsheetApp.getActive();
+  PropertiesService.getScriptProperties().setProperty('MANAGER_ID', manager.getId());
+  _dungSalesAdmin(manager);
 
   // Quét thư mục KiotViet_Drop mỗi giờ — người export thả file lúc nào cũng được.
   ScriptApp.newTrigger('napKiotViet').timeBased().everyHours(1).create();
@@ -58,6 +63,15 @@ function taoTrigger() {
   // Nạp Pancake hằng tuần (sáng thứ Hai) — chỉ chạy khi đã điền PANCAKE_COLS.
   ScriptApp.newTrigger('napPancakeAnToan').timeBased()
     .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+
+  // Quét các batch sale đã bấm Nộp. Trigger chạy bằng quyền chủ file quản lý.
+  ScriptApp.newTrigger('napLeadTuSales').timeBased().everyMinutes(5).create();
+  _salesRegistryRecords(manager.getSheetByName(CONFIG.SHEET_SALES_REGISTRY))
+    .forEach(function (item) {
+      if (_salesIsActive(item.record.active) && item.record.file_id) {
+        _ensureSalesOnEditTrigger(item.record.file_id);
+      }
+    });
 
   const n = ScriptApp.getProjectTriggers().length;
   Logger.log('Đã tạo ' + n + ' trigger:');
@@ -76,8 +90,12 @@ function napPancakeAnToan() {
 }
 
 function _xoaTriggerCu() {
+  const scheduled = [
+    'napKiotViet', 'canhChung', 'nhacExportKiotViet',
+    'napPancakeAnToan', 'napLeadTuSales',
+  ];
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() !== 'onEdit' && t.getHandlerFunction() !== 'onOpen') {
+    if (scheduled.indexOf(t.getHandlerFunction()) >= 0) {
       ScriptApp.deleteTrigger(t);
     }
   });

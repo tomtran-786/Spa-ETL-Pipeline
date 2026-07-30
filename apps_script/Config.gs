@@ -14,6 +14,7 @@ const CONFIG = {
   // --- Spreadsheet ---
   KHO_ID: 'DÁN_ID_PXV_KHO_VÀO_ĐÂY',
   DASHBOARD_ID: 'DÁN_ID_PXV_DASHBOARD_DATA_VÀO_ĐÂY',
+  SALES_FOLDER_ID: 'DÁN_ID_THƯ_MỤC_Sales_Entry_VÀO_ĐÂY',
 
   // --- Thư mục Drive để thả file export ---
   KIOTVIET_FOLDER_ID: 'DÁN_ID_THƯ_MỤC_KiotViet_Drop_VÀO_ĐÂY',
@@ -33,6 +34,9 @@ const CONFIG = {
   SHEET_KV_LOG: 'KIOTVIET_LOG',
   SHEET_PANCAKE: 'PANCAKE_RAW',
   SHEET_DQ: 'DQ_STATUS',
+  SHEET_SALES_REGISTRY: 'DANH_MỤC_SALES',
+  SHEET_SALES_LOG: 'SALES_INGEST_LOG',
+  SHEET_SALES_ERRORS: 'SALES_LỖI',
 
   // --- Ngưỡng ---
   HOA_DON_CU_QUA_NGAY: 8,      // file thả vào mà hóa đơn mới nhất cũ hơn ngần này -> cảnh báo
@@ -55,12 +59,20 @@ const LEAD_COLS = {
   NGAY: 'NGÀY',
   TEN: 'TÊN KHÁCH HÀNG',
   SDT: 'SỐ ĐT',
+  LY_DO_CHUA_CO_SDT: 'LÝ DO CHƯA CÓ SĐT',
+  LOAI_TIN_NHAN: 'LOẠI TIN NHẮN',
+  NHOM_SP: 'NHÓM SP',
+  CHATPAGE: 'CHATPAGE',
   NGUON: 'NGUỒN',
+  BAI_QC: 'BÀI QC',
+  QUAN_TAM: 'QUAN TÂM',
   TINH_TRANG: 'TÌNH TRẠNG',
   TRANG_THAI: 'TRẠNG THÁI',
   TU_VAN: 'TƯ VẤN - SALE',
+  THONG_TIN_KHACH: 'THÔNG TIN KHÁCH',
+  GIO_HEN: 'GIỜ HẸN',
   NGAY_HEN: 'NGÀY HẸN',
-  LY_DO_CHUA_CO_SDT: 'LÝ DO CHƯA CÓ SĐT',
+  GHI_CHU: 'GHI CHÚ',
 };
 
 /** Giá trị TRẠNG THÁI nghĩa là khách đã có lịch hẹn -> bắt buộc phải có SĐT. */
@@ -74,7 +86,7 @@ function _alertEmails() {
 /**
  * Lấy ID: ưu tiên Config.gs, chưa điền thì lấy từ Script Properties do
  * dungHeThong() ghi vào. Nhờ vậy chạy được ngay sau khi dựng, không phải
- * chép tay 4 ID trước. Vẫn nên điền Config.gs để người sau đọc code là biết.
+ * chép tay các ID trước. Vẫn nên điền Config.gs để người sau đọc code là biết.
  */
 function _id(ten) {
   const v = CONFIG[ten];

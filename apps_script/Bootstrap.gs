@@ -9,7 +9,7 @@
  * 3. Chọn hàm `dungHeThong` ở thanh trên, bấm Run
  * 4. Google hỏi cấp quyền lần đầu -> Review permissions > Advanced >
  *    Go to ... (unsafe) > Allow  (script của chính bạn nên an toàn)
- * 5. Xem kết quả ở View > Logs — script in ra 3 ID để dán vào Config.gs
+ * 5. Xem kết quả ở View > Logs — script in các ID để dán vào Config.gs
  *
  * Script tự tạo: 2 spreadsheet phụ, 2 thư mục Drive, toàn bộ tab, dropdown,
  * khóa vùng và định dạng. Chạy lại lần nữa cũng không hỏng — chỗ nào đã có
@@ -52,10 +52,13 @@ function dungHeThong() {
   // Tạo thư mục TRƯỚC để còn gom spreadsheet vào đó. SpreadsheetApp.create()
   // mặc định thả file ở gốc Drive, để lâu sẽ lẫn với hàng trăm file khác.
   const goc = _taoThuMuc('PXV');
+  const salesFolder = _taoThuMucCon(goc, 'Sales_Entry');
 
   _dungSheetNhapLieu(ss);
+  PropertiesService.getScriptProperties().setProperty('MANAGER_ID', ss.getId());
   _chuyenVaoThuMuc(ss.getId(), goc);
   ketQua.push(['PXV_NHẬP_LIỆU (file này)', ss.getId()]);
+  ketQua.push(['Thư mục Sales_Entry', salesFolder.getId()]);
 
   const kho = _taoSpreadsheet('PXV_KHO', goc, function (s) {
     _taoTab(s, 'INVOICES_RAW', INVOICE_HEADERS);
@@ -88,6 +91,8 @@ function dungHeThong() {
     DASHBOARD_ID: dash.getId(),
     KIOTVIET_FOLDER_ID: kvDrop.getId(),
     PANCAKE_FOLDER_ID: pcDrop.getId(),
+    SALES_FOLDER_ID: salesFolder.getId(),
+    MANAGER_ID: ss.getId(),
   });
 
   Logger.log('\n' + '='.repeat(64));
@@ -97,8 +102,8 @@ function dungHeThong() {
   Logger.log('\n' + '='.repeat(64));
   Logger.log(' VIỆC TIẾP THEO');
   Logger.log('='.repeat(64));
-  Logger.log('  1. Dán 4 ID trên vào Config.gs (KHO_ID, DASHBOARD_ID,');
-  Logger.log('     KIOTVIET_FOLDER_ID, PANCAKE_FOLDER_ID)');
+  Logger.log('  1. Dán 5 ID trên vào Config.gs (KHO_ID, DASHBOARD_ID,');
+  Logger.log('     KIOTVIET_FOLDER_ID, PANCAKE_FOLDER_ID, SALES_FOLDER_ID)');
   Logger.log('  2. Chạy hàm taoTrigger() để bật tự động hóa');
   Logger.log('  3. Chia sẻ 3 spreadsheet + thư mục PXV cho Service Account:');
   Logger.log('       PXV_NHẬP_LIỆU      -> Viewer');
@@ -123,18 +128,20 @@ function _dungSheetNhapLieu(ss) {
   _taoTab(ss, 'CHI_PHÍ_QC', ['tháng', 'kênh', 'mã bài QC', 'chi phí']);
 
   const lead = _taoTab(ss, 'LEAD', LEAD_HEADERS);
+  _migrateSalesCatalogIfNeeded(ss);
   _dinhDangLead(lead);
   _datValidationLead(ss, lead);
   _khoaVungLead(lead);
   _dungTabHuongDan(ss);
   _dinhDangChiPhi(ss);
+  _dungSalesAdmin(ss);
 
   // Xóa tab "Sheet1" mặc định nếu còn trống
   const mac_dinh = ss.getSheetByName('Sheet1') || ss.getSheetByName('Trang tính1');
   if (mac_dinh && ss.getSheets().length > 1 && mac_dinh.getLastRow() === 0) {
     ss.deleteSheet(mac_dinh);
   }
-  Logger.log('  ✅ PXV_NHẬP_LIỆU: 6 tab, dropdown, khóa vùng, định dạng');
+  Logger.log('  ✅ PXV_NHẬP_LIỆU: lead + sales registry/log, dropdown, khóa vùng, định dạng');
 }
 
 function _dienDanhMuc(s) {

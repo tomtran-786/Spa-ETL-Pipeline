@@ -54,15 +54,20 @@ Làm mỗi ngày, mất khoảng 2 phút. Sáng 8h sẽ có email nhắc.
 
 ## Sales: nhập lead
 
-Mỗi khách nhắn tin = 1 dòng mới trong sheet **LEAD**.
+Mỗi sale dùng file riêng `PXV_SALES_<Tên>`, không mở file quản lý.
 
-1. Gõ nội dung vào dòng trống tiếp theo — **cột NGÀY tự điền**, không cần gõ
+1. Vào `NHẬP_MỚI`, nhập khách rồi tick **LƯU TẠM** — ngày và sale tự điền
 2. Nhập **SỐ ĐT** nếu xin được. Chưa xin được thì chọn lý do ở cột **LÝ DO CHƯA CÓ SĐT**
-3. Chọn **NGUỒN** từ danh sách xổ xuống (gõ sai chính tả hệ thống tự sửa)
-4. Khi khách đồng ý đến, đổi **TRẠNG THÁI** thành `ĐẶT HẸN` và điền **NGÀY HẸN**
-5. Khách làm xong dịch vụ thì đổi **TRẠNG THÁI** thành `ĐÃ LÀM DV`
+3. Cuối ngày tick **NỘP CUỐI NGÀY**. Dòng hợp lệ sang file quản lý trong tối
+   đa 5 phút; dòng lỗi hiện ở `HÔM_NAY`
+4. Nếu hôm sau khách mới chốt hẹn, mở `ĐANG_THEO_DÕI`, tìm đúng khách, bổ sung
+   SĐT + trạng thái + ngày/giờ hẹn rồi Nộp lại
+5. Hệ thống tăng revision và cập nhật đúng `_LEAD_ID`; **không tạo thêm inbox**
+   và không đổi ngày lead ban đầu
+6. Khi không cần follow-up nữa, tick `_ĐÓNG THEO DÕI`
 
-**Không sửa** các cột nền vàng — đó là cột hệ thống tự tính.
+Ô vàng là ô sale được sửa. Cột nguồn gốc và metadata bị khóa sau lần nộp đầu.
+Nếu cần sửa nguồn/ngày/sale, báo quản lý sửa trong `LEAD`.
 
 ---
 
@@ -132,6 +137,16 @@ Mở Google Sheet nhập liệu → menu **🔄 PXV** → **Xem trạng thái d�
 
 ## Sales bị chặn không nhập được
 
+### File sale hiện `ERROR` hoặc `CONFLICT`
+
+- `ERROR`: đọc cột `_ERROR`, sửa đúng ô vàng rồi tick **NỘP CUỐI NGÀY** lại.
+- `CONFLICT`: quản lý đã sửa cùng dòng trong `LEAD` sau lần sync trước. Sale
+  không được bấm qua cảnh báo. Quản lý đối chiếu before/after ở
+  `SALES_INGEST_LOG`, rồi chọn menu **Conflict: giữ bản trong LEAD** hoặc
+  **Conflict: dùng bản của sale**. Cả hai lựa chọn đều được ghi vào lịch sử.
+- Bấm Nộp nhưng quá 5 phút chưa nhận: quản lý chạy **Sales Entry → Nạp dữ liệu
+  sales ngay**, rồi xem `SALES_LỖI`.
+
 ### Hiện thông báo *"Phải nhập SỐ ĐT trước khi chuyển khách sang Đặt hẹn"*
 
 Đây là chặn có chủ đích, không phải lỗi. Khách đã hẹn đến cửa hàng thì phải có số để gọi xác nhận.
@@ -180,9 +195,12 @@ Hiện đang tính 3 nhóm: `GÓI TIẾT KIỆM`, `Xóa lần 01`, `CO2 Fraction
 
 ## Nhân viên mới / nghỉ việc
 
-**Nhân viên mới:** thêm tên vào cột `CHATPAGE` trong sheet **DANH_MỤC**, rồi chia sẻ quyền sửa Google Sheet nhập liệu cho họ.
+**Nhân viên mới:** thêm tên vào `DANH_MỤC`, rồi dùng menu **🔄 PXV → Sales
+Entry → Tạo file cho sale**. Nhập đúng Gmail; script tự share file riêng và
+cài trigger.
 
-**Nhân viên nghỉ:** bỏ quyền truy cập Google Sheet. **Không xóa các dòng cũ của họ** — sẽ mất lịch sử và làm sai số báo cáo các tháng trước.
+**Nhân viên nghỉ:** bỏ quyền file riêng và bỏ tick `active` trong
+`DANH_MỤC_SALES`. **Không xóa file hoặc dòng cũ** — cần giữ lịch sử và audit.
 
 > ⚠️ Nếu người nghỉ việc là **người đã cài đặt Apps Script**, các tự động hóa sẽ ngừng chạy. Phải báo người kỹ thuật cài lại bằng tài khoản chủ doanh nghiệp.
 

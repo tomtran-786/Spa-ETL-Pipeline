@@ -46,12 +46,22 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - run: pip install -r requirements.txt
 
       # Test chạy trước. Logic sai thì thà không cập nhật còn hơn ghi đè số
       # đúng bằng số sai — dashboard sẽ giữ số cũ kèm cảnh báo "dữ liệu cũ".
       - name: Kiểm tra logic
-        run: python -m pytest tests/ -q
+        run: |
+          python -m pytest tests/ -q
+          node --test tests_js/*.test.cjs
+          for f in apps_script/*.gs; do
+            cp "$f" "/tmp/$(basename "$f" .gs).js"
+            node --check "/tmp/$(basename "$f" .gs).js"
+          done
 
       # Kiểm biến TRƯỚC khi chạy pipeline. Thiếu secret mà để Python phát hiện
       # thì lỗi hiện ra dưới dạng traceback, không nói được phải vào đâu để sửa.

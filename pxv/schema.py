@@ -55,6 +55,17 @@ LEAD_REQUIRED = [
 LEAD_OPTIONAL = ["TRẠNG THÁI", "TƯ VẤN - SALE", "THÔNG TIN KHÁCH",
                  "GIỜ HẸN", "BÀI QC"]
 
+# Metadata append-only do Apps Script Sales Entry quản lý. Pipeline không dùng
+# chúng để tính funnel, nhưng cho phép tồn tại ở cuối LEAD để revision cập nhật
+# đúng một dòng thay vì tạo thêm inbox mới.
+LEAD_AUDIT_OPTIONAL = [
+    "_LEAD_ID",
+    "_REVISION",
+    "_BATCH_ID",
+    "_SUBMITTED_AT",
+    "_SOURCE_SALE_ID",
+]
+
 HEN_REQUIRED = ["SỐ ĐT", "NGÀY HẸN"]
 
 INVOICE_REQUIRED = [

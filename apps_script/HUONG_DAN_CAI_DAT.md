@@ -2,13 +2,13 @@
 
 Tổng thời gian **20–30 phút**. Làm một lần duy nhất.
 
-> **Thứ tự dán 8 file KHÔNG quan trọng.** Apps Script gộp mọi file `.gs` trong cùng project vào một không gian chung, nên hàm ở file này gọi được hàm ở file kia bất kể dán trước hay sau. Điều quan trọng là **dán đủ cả 8 file rồi mới chạy hàm nào**.
+> **Thứ tự dán 11 file KHÔNG quan trọng.** Apps Script gộp mọi file `.gs` trong cùng project vào một không gian chung, nên hàm ở file này gọi được hàm ở file kia bất kể dán trước hay sau. Điều quan trọng là **dán đủ cả 11 file rồi mới chạy hàm nào**.
 >
 > Thứ tự **chạy hàm** thì có quan trọng — xem Bước 5 và 7.
 
 ---
 
-## Vai trò 8 file
+## Vai trò 11 file
 
 | File | Làm gì | Khi nào chạy |
 |---|---|---|
@@ -20,6 +20,9 @@ Tổng thời gian **20–30 phút**. Làm một lần duy nhất.
 | `IngestKiotViet.gs` | Nạp file hóa đơn từ Drive | Trigger mỗi giờ |
 | `IngestPancake.gs` | Vá lead thiếu SĐT | Trigger hằng tuần |
 | `Watchdog.gs` | Canh pipeline + nhắc export | Trigger hằng ngày |
+| `SalesCore.gs` | Validation, checksum và revision dùng chung | Không chạy trực tiếp |
+| `SalesEntry.gs` | Form, Lưu tạm/Nộp và follow-up trong file sale | Installable onEdit |
+| `SalesIngest.gs` | Tạo file sale, registry, ingest và conflict log | Trigger mỗi 5 phút |
 
 ---
 
@@ -39,7 +42,7 @@ Trên thanh menu: **Tiện ích mở rộng** (Extensions) → **Apps Script**.
 
 Một tab mới mở ra, có sẵn file `Code.gs` với hàm rỗng.
 
-## Bước 3 — Dán 8 file
+## Bước 3 — Dán 11 file
 
 Với **mỗi** file trong thư mục `apps_script/`:
 
@@ -49,17 +52,24 @@ Với **mỗi** file trong thư mục `apps_script/`:
 4. Dán toàn bộ nội dung file tương ứng
 5. `Ctrl+S` (hoặc `Cmd+S`) để lưu
 
-Làm đủ 8 file: `Config`, `Bootstrap`, `Setup`, `OnEdit`, `Menu`, `IngestKiotViet`, `IngestPancake`, `Watchdog`.
+Làm đủ 11 file: `Config`, `Bootstrap`, `Setup`, `OnEdit`, `Menu`,
+`IngestKiotViet`, `IngestPancake`, `Watchdog`, `SalesCore`, `SalesEntry`,
+`SalesIngest`.
 
 Xong thì **xóa file `Code.gs`** mặc định (bấm ⋮ cạnh tên → Delete).
 
 > Chưa cần sửa gì trong `Config.gs` ở bước này. Bước 6 mới điền.
 
-## Bước 4 — Bật Drive API
+## Bước 4 — Bật Drive API và Google Sheets API
 
-Bên trái, cạnh chữ **Services**, bấm dấu **+** → tìm **Drive API** → **Add**.
+Bên trái, cạnh chữ **Services**, bấm dấu **+**, thêm cả:
 
-Bước này chỉ phục vụ đọc file Excel của Pancake. Bỏ qua thì mọi thứ khác vẫn chạy, riêng `napPancake()` sẽ lỗi.
+- **Drive API** — đọc file Excel của Pancake.
+- **Google Sheets API** — ghi lead bằng `valueInputOption=RAW`, giữ số 0 đầu và
+  ngày ISO.
+
+Nếu quên Sheets API, code có fallback định dạng text nhưng sẽ ghi cảnh báo trong
+Apps Script Executions.
 
 ## Bước 5 — Chạy `dungHeThong()`
 
@@ -80,28 +90,31 @@ Cảnh báo này xuất hiện với mọi Apps Script tự viết chưa qua th�
 ```
 Drive/PXV/
   ├── PXV_NHẬP_LIỆU        LEAD, DANH_MỤC, ÁNH_XẠ_ALIAS,
-  │                        CHI_PHÍ_QC, TỪ_LẠ_CHỜ_DUYỆT, HƯỚNG_DẪN
+  │                        CHI_PHÍ_QC, DANH_MỤC_SALES,
+  │                        SALES_INGEST_LOG, SALES_LỖI...
   ├── PXV_KHO              INVOICES_RAW, PANCAKE_RAW, KIOTVIET_LOG
   ├── PXV_DASHBOARD_DATA   DQ_STATUS
   ├── KiotViet_Drop/       (thả file export KiotViet vào đây)
-  └── Pancake_Drop/        (thả file export Pancake vào đây)
+  ├── Pancake_Drop/        (thả file export Pancake vào đây)
+  └── Sales_Entry/         (mỗi sale một file riêng)
 ```
 
 kèm 8 dropdown, khóa hàng header, định dạng cột SĐT thành text.
 
-Chạy xong xem **View → Logs** (hoặc `Ctrl+Enter`), sẽ thấy 4 ID được in ra.
+Chạy xong xem **View → Logs** (hoặc `Ctrl+Enter`), sẽ thấy 5 ID được in ra.
 
 > Chạy lại `dungHeThong()` lần nữa cũng không hỏng — chỗ nào đã có thì bỏ qua, không ghi đè dữ liệu.
 
-## Bước 6 — Chép 4 ID vào `Config.gs`
+## Bước 6 — Chép 5 ID vào `Config.gs`
 
-Mở `Config.gs`, thay 4 dòng còn ghi `DÁN_ID...` bằng ID lấy từ Logs:
+Mở `Config.gs`, thay 5 dòng còn ghi `DÁN_ID...` bằng ID lấy từ Logs:
 
 ```javascript
 KHO_ID: '1AbC...',
 DASHBOARD_ID: '1XyZ...',
 KIOTVIET_FOLDER_ID: '1Def...',
 PANCAKE_FOLDER_ID: '1Ghi...',
+SALES_FOLDER_ID: '1Jkl...',
 ```
 
 Đồng thời sửa dòng email nhận cảnh báo:
@@ -112,13 +125,14 @@ ALERT_EMAIL: 'email-cua-ban@gmail.com',
 
 Lưu lại.
 
-> **Bỏ qua bước này hệ thống vẫn chạy** — `dungHeThong()` đã lưu 4 ID vào Script Properties và code tự đọc từ đó. Nhưng nên điền, để người tiếp quản đọc code là biết ngay ID nào trỏ đi đâu.
+> **Bỏ qua bước này hệ thống vẫn chạy** — `dungHeThong()` đã lưu các ID vào
+> Script Properties và code tự đọc từ đó.
 
 ## Bước 7 — Chạy `taoTrigger()`
 
 Chọn hàm `taoTrigger` → **Run**.
 
-Tạo 4 lịch chạy tự động:
+Tạo 5 lịch chạy tự động, cộng một `onSaleEdit` cho mỗi file sale active:
 
 | Hàm | Khi nào |
 |---|---|
@@ -126,6 +140,7 @@ Tạo 4 lịch chạy tự động:
 | `nhacExportKiotViet` | 08:00 hằng ngày |
 | `canhChung` | 09:00 hằng ngày |
 | `napPancakeAnToan` | 07:00 thứ Hai |
+| `napLeadTuSales` | Mỗi 5 phút |
 
 `onEdit` và `onOpen` **không nằm trong danh sách này** vì Google tự chạy chúng — không cần cài gì thêm.
 
@@ -141,8 +156,9 @@ Bấm **🔄 PXV → Kiểm tra cấu hình**. Phải thấy toàn dấu ✅:
 ✅ Mở được Dashboard
 ✅ Mở được thư mục KiotViet_Drop
 ✅ Mở được thư mục Pancake_Drop
+✅ Mở được thư mục Sales_Entry
 ⚠️ Chưa có GITHUB_TOKEN
-✅ Đã đặt 4 trigger
+✅ Đã đặt ít nhất 5 trigger
 ```
 
 Dòng `GITHUB_TOKEN` báo vàng là bình thường — xem Bước 10.
@@ -191,13 +207,33 @@ Bỏ tick "Notify people" — service account không đọc email.
 
 **Đọc tab `HƯỚNG_DẪN`** với đội sales — nhất là 5 quy tắc bắt buộc (không đổi tên cột, không gộp ô, không thêm dòng tổng).
 
+### Tạo file riêng và pilot
+
+1. Mở menu **🔄 PXV → Sales Entry → Dựng/nâng cấp hệ thống sales**.
+   Nếu `DANH_MỤC` còn schema cũ, script tự tạo tab `DM_BACKUP_...` trước khi
+   migrate; dữ liệu trong `LEAD` không bị sửa.
+2. Chọn **Tạo file cho sale**, nhập tên `Trường Khang` và Gmail dùng pilot.
+3. Sale mở file `PXV_SALES_Trường Khang`:
+   - nhập form `NHẬP_MỚI` rồi tick **LƯU TẠM**;
+   - cuối ngày tick **NỘP CUỐI NGÀY**;
+   - hôm sau mở `ĐANG_THEO_DÕI`, bổ sung lịch hẹn rồi Nộp lại.
+4. Trong tối đa 5 phút, quản lý kiểm tra:
+   - `LEAD` có đúng một `_LEAD_ID`;
+   - revision sau follow-up tăng từ 1 lên 2 nhưng `NGÀY` không đổi;
+   - `SALES_INGEST_LOG` có một dòng cho mỗi revision;
+   - lỗi/conflict, nếu có, nằm ở `SALES_LỖI`.
+5. Pilot đủ hai ngày rồi mới tạo file cho các sale còn lại.
+
+Sale chỉ được share file riêng. **Không share `PXV_NHẬP_LIỆU` cho sale.**
+
 ---
 
 ## Khi gặp lỗi
 
 **"Chưa có KHO_ID"** — chưa chạy `dungHeThong()`, hoặc chạy lỗi giữa chừng. Chạy lại và xem Logs.
 
-**"Không thấy sheet LEAD"** — `dungHeThong()` chưa chạy xong. Kiểm tra file `PXV_NHẬP_LIỆU` đã có đủ 6 tab chưa.
+**"Không thấy sheet LEAD"** — `dungHeThong()` chưa chạy xong. Chạy lại bootstrap
+và kiểm tra `PXV_NHẬP_LIỆU` có `LEAD`, `DANH_MỤC` cùng ba tab Sales Entry.
 
 **Menu 🔄 PXV không hiện** — tải lại trang. Vẫn không có thì kiểm tra `Menu.gs` đã dán chưa và có hàm `onOpen`.
 
@@ -205,7 +241,14 @@ Bỏ tick "Notify people" — service account không đọc email.
 
 **onEdit không phản ứng khi gõ** — mở Apps Script → **Executions** xem có lỗi không. Lưu ý `onEdit` không chạy khi bạn sửa ô bằng script hoặc bằng import, chỉ chạy khi người thật gõ tay.
 
-**Trigger không chạy** — Apps Script → **Triggers** (biểu tượng đồng hồ) xem 4 trigger còn đó không. Cột "Last run" báo lỗi thì bấm vào xem chi tiết.
+**Trigger không chạy** — Apps Script → **Triggers** (biểu tượng đồng hồ) xem
+ít nhất 5 trigger lịch và một `onSaleEdit` cho mỗi file sale active. Cột
+"Last run" báo lỗi thì bấm vào xem chi tiết.
+
+**Sale bấm Nộp nhưng dữ liệu không sang LEAD** — xem `SALES_LỖI`, rồi chạy menu
+**Sales Entry → Nạp dữ liệu sales ngay**. Nếu báo `CONFLICT`, quản lý đã sửa
+dòng trung tâm sau lần sync; đối chiếu `SALES_INGEST_LOG` trước khi quyết định
+giữ giá trị nào.
 
 Sự cố khi đã vận hành: xem [RUNBOOK.md](../RUNBOOK.md).
 
@@ -213,11 +256,12 @@ Sự cố khi đã vận hành: xem [RUNBOOK.md](../RUNBOOK.md).
 
 ## Kiểm tra cuối
 
-- [ ] Thư mục `Drive/PXV/` có 3 spreadsheet + 2 thư mục con
-- [ ] `PXV_NHẬP_LIỆU` có 6 tab, tab `LEAD` có 16 cột
+- [ ] Thư mục `Drive/PXV/` có 3 spreadsheet + `Sales_Entry`
+- [ ] `PXV_NHẬP_LIỆU` có `DANH_MỤC_SALES`, `SALES_INGEST_LOG`, `SALES_LỖI`
+- [ ] Cuối `LEAD` có 5 cột metadata `_LEAD_ID`... và các cột này đang ẩn
 - [ ] Cột `SỐ ĐT` ở tab `LEAD` định dạng text — gõ thử `0390000001`, số 0 đầu **không** bị mất
 - [ ] Gõ thử một dòng: cột `NGÀY` tự điền ngày hôm nay
 - [ ] Chọn `TRẠNG THÁI` = "Đặt hẹn" khi chưa nhập SĐT → bị chặn kèm thông báo đỏ
 - [ ] Gõ `instgram` vào cột `NGUỒN` → tự sửa thành `Instagram`
 - [ ] Menu 🔄 PXV → Kiểm tra cấu hình: toàn ✅ (trừ `GITHUB_TOKEN` nếu bỏ qua Bước 10)
-- [ ] Apps Script → Triggers: đủ 4 trigger
+- [ ] Apps Script → Triggers: ít nhất 5 trigger + `onSaleEdit` cho file pilot

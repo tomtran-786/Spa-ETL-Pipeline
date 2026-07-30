@@ -5,13 +5,28 @@
  * Đây là cách giảm rủi ro "chỉ một người biết sửa".
  */
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('🔄 PXV')
+  const ui = SpreadsheetApp.getUi();
+  const sales = ui.createMenu('Sales Entry')
+    .addItem('Dựng/nâng cấp hệ thống sales', 'dungHeThongSales')
+    .addItem('Tạo file cho sale', 'taoFileChoSale')
+    .addItem('Nạp dữ liệu sales ngay', 'napLeadTuSalesNgay')
+    .addItem('Đồng bộ danh mục xuống file sale', 'dongBoDanhMucSales')
+    .addSeparator()
+    .addItem('Xem trạng thái Sales Entry', 'xemTrangThaiSalesEntry')
+    .addItem('Tạo lại trigger file sale', 'taoLaiTriggerSales')
+    .addItem('Mở lại lead đã đóng', 'moLaiLeadSale')
+    .addItem('Conflict: giữ bản trong LEAD', 'giaiQuyetConflictGiuLead')
+    .addItem('Conflict: dùng bản của sale', 'giaiQuyetConflictDungBanSale')
+    .addItem('Backup/migrate DANH_MỤC', 'migrateDanhMucSales');
+
+  ui.createMenu('🔄 PXV')
     .addItem('Chạy lại pipeline ngay', 'chayLaiPipeline')
     .addItem('Xem trạng thái dữ liệu', 'xemTrangThai')
     .addSeparator()
     .addItem('Nạp file KiotViet vừa thả', 'napKiotViet')
     .addItem('Nạp file Pancake vừa thả', 'napPancake')
+    .addSeparator()
+    .addSubMenu(sales)
     .addSeparator()
     .addItem('Kiểm tra cấu hình', 'kiemTraCauHinh')
     .addItem('⚙️ Dựng lại hệ thống (chạy 1 lần)', 'dungHeThong')
@@ -110,12 +125,19 @@ function kiemTraCauHinh() {
       }
     });
 
+  try {
+    DriveApp.getFolderById(_id('SALES_FOLDER_ID')).getName();
+    ketQua.push('✅ Mở được thư mục Sales_Entry');
+  } catch (e) {
+    ketQua.push('❌ Không mở được thư mục Sales_Entry — chạy dungHeThongSales()');
+  }
+
   ketQua.push(PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN')
     ? '✅ Đã có GITHUB_TOKEN'
     : '⚠️ Chưa có GITHUB_TOKEN (nút "Chạy lại pipeline" sẽ không dùng được)');
 
   const triggers = ScriptApp.getProjectTriggers().length;
-  ketQua.push(triggers >= 3
+  ketQua.push(triggers >= 5
     ? '✅ Đã đặt ' + triggers + ' trigger'
     : '⚠️ Mới có ' + triggers + ' trigger — chạy hàm taoTrigger() trong Setup.gs');
 

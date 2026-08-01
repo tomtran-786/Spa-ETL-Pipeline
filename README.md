@@ -38,6 +38,11 @@ Solution gồm hai phần:
   cung cấp file nhập riêng cho từng sale, đồng bộ revision có audit, menu vận
   hành và watchdog theo dõi pipeline.
 
+![Kiến trúc pipeline PXV](docs/architecture-horizontal.png)
+
+Sơ đồ đầy đủ: [`docs/architecture-horizontal.svg`](docs/architecture-horizontal.svg)
+(khổ ngang) hoặc [`docs/architecture.svg`](docs/architecture.svg) (khổ dọc).
+
 ```text
 Google Sheets + Google Drive
              │
